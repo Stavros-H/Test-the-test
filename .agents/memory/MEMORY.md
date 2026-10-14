@@ -1,0 +1,1 @@
+- [Bcrypt install compatibility](bcrypt-install-compatibility.md) — Keep bcrypt on the v6 line; v5's transitive tar dependency was blocked by Replit's security policy.
