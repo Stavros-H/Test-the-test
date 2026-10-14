@@ -1,0 +1,19 @@
+{
+  "name": "speed-smarts",
+  "version": "1.0.0",
+  "description": "Speed Smarts - A general knowledge quiz app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.6",
+    "express": "^5.0.0",
+    "pg": "^8.11.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
