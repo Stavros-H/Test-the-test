@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Smarts - Admin</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Speed Smarts</h1>
+            <p>Admin Panel</p>
+        </header>
+        
+        <nav>
+            <a href="/" class="btn">Home</a>
+            <a href="/dashboard" class="btn">Dashboard</a>
+            <a href="/" id="logoutBtn" class="btn">Logout</a>
+        </nav>
+        
+        <main>
+            <section class="admin-section">
+                <h2>Admin Dashboard</h2>
+                <p>Welcome, <span id="adminUsername"></span> (Teacher)</p>
+                
+                <div class="admin-cards">
+                    <div class="admin-card">
+                        <h3>Question Editor</h3>
+                        <p>Add, edit, and manage quiz questions.</p>
+                        <a href="#" class="btn btn-primary">Manage Questions</a>
+                    </div>
+                    
+                    <div class="admin-card">
+                        <h3>CSV Import</h3>
+                        <p>Upload questions via CSV file.</p>
+                        <a href="#" class="btn btn-primary">Import CSV</a>
+                    </div>
+                    
+                    <div class="admin-card">
+                        <h3>User Management</h3>
+                        <p>View and manage all users.</p>
+                        <a href="#" class="btn btn-primary">Manage Users</a>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 Speed Smarts</p>
+        </footer>
+    </div>
+    
+    <script src="auth.js"></script>
+    <script>
+        // Check admin session on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    const data = await response.json();
+                    const user = data.user;
+                    
+                    document.getElementById('adminUsername').textContent = user.username;
+                    
+                    // Redirect if not admin
+                    if (user.role !== 'teacher') {
+                        alert('Admin access required');
+                        window.location.href = '/dashboard';
+                    }
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (err) {
+                console.error('Error fetching user:', err);
+                window.location.href = '/login';
+            }
+        });
+        
+        // Logout handler
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await fetch('/api/auth/logout', { method: 'POST' });
+                if (response.ok) {
+                    window.location.href = '/login';
+                }
+            } catch (err) {
+                console.error('Logout error:', err);
+            }
+        });
+    </script>
+</body>
+</html>

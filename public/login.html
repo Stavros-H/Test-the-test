@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Smarts - Login</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Speed Smarts</h1>
+            <p>Login</p>
+        </header>
+        
+        <nav>
+            <a href="/" class="btn">Home</a>
+            <a href="/register" class="btn">Register</a>
+        </nav>
+        
+        <main>
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Login</button>
+                
+                <div id="errorMessage" class="error-message"></div>
+            </form>
+            
+            <p class="auth-link">Don't have an account? <a href="/register">Register here</a></p>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 Speed Smarts</p>
+        </footer>
+    </div>
+    
+    <script src="auth.js"></script>
+</body>
+</html>

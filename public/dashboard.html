@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Smarts - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Speed Smarts</h1>
+            <p>Dashboard</p>
+        </header>
+        
+        <nav>
+            <a href="/" class="btn">Home</a>
+            <a href="/" id="logoutBtn" class="btn">Logout</a>
+        </nav>
+        
+        <main>
+            <section id="userInfo" class="user-info">
+                <h2>Welcome, <span id="username"></span>!</h2>
+                <p>Role: <span id="userRole"></span></p>
+                <p>Email: <span id="userEmail"></span></p>
+            </section>
+            
+            <section class="actions">
+                <h3>What would you like to do?</h3>
+                <div class="action-buttons">
+                    <a href="/" class="btn btn-primary">View Quizzes</a>
+                    <a href="/admin" id="adminLink" class="btn btn-admin" style="display: none;">Admin Panel</a>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 Speed Smarts</p>
+        </footer>
+    </div>
+    
+    <script src="auth.js"></script>
+    <script>
+        // Check user session on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    const data = await response.json();
+                    const user = data.user;
+                    
+                    document.getElementById('username').textContent = user.username;
+                    document.getElementById('userEmail').textContent = user.email;
+                    document.getElementById('userRole').textContent = user.role;
+                    
+                    // Show admin link for teachers
+                    if (user.role === 'teacher') {
+                        document.getElementById('adminLink').style.display = 'inline-block';
+                    }
+                } else {
+                    // Not logged in, redirect to login
+                    window.location.href = '/login';
+                }
+            } catch (err) {
+                console.error('Error fetching user:', err);
+                window.location.href = '/login';
+            }
+        });
+        
+        // Logout handler
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await fetch('/api/auth/logout', { method: 'POST' });
+                if (response.ok) {
+                    window.location.href = '/login';
+                }
+            } catch (err) {
+                console.error('Logout error:', err);
+            }
+        });
+    </script>
+</body>
+</html>
