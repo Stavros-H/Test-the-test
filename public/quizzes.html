@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Smarts - Quizzes</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Speed Smarts</h1>
+            <p>Select a Quiz</p>
+        </header>
+        
+        <nav>
+            <a href="/dashboard" class="btn">Dashboard</a>
+            <a href="/" id="logoutBtn" class="btn">Logout</a>
+        </nav>
+        
+        <main>
+            <section class="quizzes-section">
+                <h2>Available Quizzes</h2>
+                <p>Choose a quiz to test your knowledge!</p>
+                
+                <div id="quizzesList" class="quizzes-grid">
+                    <p class="loading">Loading quizzes...</p>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 Speed Smarts</p>
+        </footer>
+    </div>
+    
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication
+            try {
+                const response = await fetch('/api/auth/me');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+            } catch (err) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Load quizzes
+            await loadQuizzes();
+            
+            // Setup logout
+            document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    window.location.href = '/login';
+                } catch (err) {
+                    console.error('Logout error:', err);
+                }
+            });
+        });
+        
+        async function loadQuizzes() {
+            try {
+                const response = await fetch('/api/quizzes');
+                if (!response.ok) {
+                    throw new Error('Failed to load quizzes');
+                }
+                
+                const data = await response.json();
+                const quizzesList = document.getElementById('quizzesList');
+                quizzesList.innerHTML = '';
+                
+                if (data.quizzes.length === 0) {
+                    quizzesList.innerHTML = '<p>No quizzes available yet. Check back later!</p>';
+                    return;
+                }
+                
+                data.quizzes.forEach(quiz => {
+                    const quizCard = document.createElement('div');
+                    quizCard.className = 'quiz-card';
+                    quizCard.innerHTML = `
+                        <h3>${quiz.title}</h3>
+                        <p class="quiz-description">${quiz.description || 'General knowledge quiz'}</p>
+                        <p class="quiz-meta">${quiz.question_count} questions</p>
+                        <a href="/quizzes/${quiz.id}" class="btn btn-primary">Start Quiz</a>
+                    `;
+                    quizzesList.appendChild(quizCard);
+                });
+            } catch (err) {
+                console.error('Error loading quizzes:', err);
+                document.getElementById('quizzesList').innerHTML = 
+                    '<p class="error-message show">Failed to load quizzes. Please try again.</p>';
+            }
+        }
+    </script>
+</body>
+</html>
