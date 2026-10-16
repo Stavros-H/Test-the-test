@@ -704,10 +704,19 @@ const seedTestData = async (client) => {
   console.log('Sample quizzes and questions seeded for testing');
 };
 
-// Start server
-app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
-  await initializeDatabase();
-});
+// Initialize database first, then start server
+const startServer = async () => {
+  try {
+    await initializeDatabase();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 module.exports = { app, pool };
