@@ -36,15 +36,25 @@ const generateSessionToken = () => {
 };
 
 // Helper: Verify session middleware
+const rejectUnauthenticatedRequest = (req, res, message) => {
+  res.clearCookie('session_token');
+
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: message });
+  }
+
+  return res.redirect('/login');
+};
+
 const requireAuth = async (req, res, next) => {
   if (!req.cookies.session_token) {
-    return res.status(401).json({ error: 'Not logged in' });
+    return rejectUnauthenticatedRequest(req, res, 'Not logged in');
   }
   
   try {
     const result = await pool.query('SELECT * FROM users WHERE session_token = $1', [req.cookies.session_token]);
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid session' });
+      return rejectUnauthenticatedRequest(req, res, 'Invalid session');
     }
     req.user = result.rows[0];
     next();
