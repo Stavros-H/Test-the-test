@@ -337,7 +337,7 @@ app.post('/api/quizzes/:id/attempts', requireAuth, async (req, res) => {
     const questionsResult = await pool.query(`
       SELECT id FROM questions 
       WHERE quiz_id = $1 AND deleted_at IS NULL
-      ORDER BY random()  // Shuffle questions
+      ORDER BY random() -- Shuffle questions
     `, [quizId]);
     
     if (questionsResult.rows.length === 0) {
