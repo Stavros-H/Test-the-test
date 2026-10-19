@@ -642,33 +642,54 @@ const initializeDatabase = async () => {
       
       // Seed initial quizzes and questions for testing (only in development)
       if (process.env.NODE_ENV !== 'production') {
-        const quizCheck = await client.query('SELECT COUNT(*) FROM quizzes');
-        const quizCount = parseInt(quizCheck.rows[0].count);
+        // Check per-quiz question counts to ensure each has exactly 12 questions
+        const quizCheck = await client.query(`
+          SELECT q.id, q.title, COUNT(qn.id) as question_count
+          FROM quizzes q
+          LEFT JOIN questions qn ON q.id = qn.quiz_id AND qn.deleted_at IS NULL
+          GROUP BY q.id, q.title
+          ORDER BY q.id
+        `);
         
-        // If no quizzes, or if quizzes exist but don't have 12 questions each, re-seed
-        if (quizCount === 0) {
-          await seedTestData(client);
-        } else {
-          // Check if existing quizzes have the correct number of questions
-          const quizQuestionCheck = await client.query(`
-            SELECT COUNT(*) as total_questions 
-            FROM questions q
-            JOIN quizzes quiz ON q.quiz_id = quiz.id
-            WHERE q.deleted_at IS NULL
-          `);
-          const totalQuestions = parseInt(quizQuestionCheck.rows[0].total_questions);
-          
-          // If we don't have exactly 60 questions (5 quizzes * 12 questions), re-seed
-          if (totalQuestions !== 60) {
-            console.log(`Found ${quizCount} quizzes with ${totalQuestions} total questions. Re-seeding to ensure 12 questions per quiz (60 total)...`);
-            // Clear existing quiz data
+        const quizzes = quizCheck.rows;
+        let needsReseed = quizzes.length !== 5;
+        
+        // Check if any quiz doesn't have exactly 12 questions
+        if (!needsReseed) {
+          for (const quiz of quizzes) {
+            if (parseInt(quiz.question_count) !== 12) {
+              needsReseed = true;
+              console.log(`Quiz '${quiz.title}' has ${quiz.question_count} questions, expected 12. Will re-seed.`);
+              break;
+            }
+          }
+        }
+        
+        // Also check if there are no quizzes at all
+        if (quizzes.length === 0) {
+          needsReseed = true;
+        }
+        
+        if (needsReseed) {
+          console.log('Re-seeding quiz data to ensure 5 quizzes with 12 questions each...');
+          // Clear existing quiz data in proper order to respect foreign keys
+          try {
+            await client.query('BEGIN');
             await client.query('DELETE FROM attempt_answers');
             await client.query('DELETE FROM attempts');
             await client.query('DELETE FROM choices');
             await client.query('DELETE FROM questions');
             await client.query('DELETE FROM quizzes');
             await seedTestData(client);
+            await client.query('COMMIT');
+            console.log('Quiz data re-seeded successfully: 5 quizzes with 12 questions each (60 total)');
+          } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Failed to re-seed quiz data:', err);
+            throw err;
           }
+        } else {
+          console.log('Quiz data verified: 5 quizzes with 12 questions each already present');
         }
       }
       
