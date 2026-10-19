@@ -679,6 +679,85 @@ const seedTestData = async (client) => {
     'Sports, games, and everyday trivia'
   ];
   
+  // 12 questions per quiz (60 total) from the Project Specifications
+  const allQuizQuestions = [
+    // Quiz 1: World Wander (Geography)
+    [
+      { text: 'What is the capital city of Japan?', choices: ['Kyoto', 'Osaka', 'Tokyo', 'Nagoya'], correct: 2 },
+      { text: 'Which is the largest ocean on Earth?', choices: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correct: 3 },
+      { text: 'How many continents are there?', choices: ['5', '6', '7', '8'], correct: 2 },
+      { text: 'What is the capital of Australia?', choices: ['Sydney', 'Melbourne', 'Perth', 'Canberra'], correct: 3 },
+      { text: 'The Amazon Rainforest lies mostly in which country?', choices: ['Peru', 'Brazil', 'Colombia', 'Venezuela'], correct: 1 },
+      { text: 'Which river flows through Paris?', choices: ['Seine', 'Thames', 'Rhine', 'Danube'], correct: 0 },
+      { text: 'Which country is home to the Great Barrier Reef?', choices: ['Indonesia', 'Philippines', 'Australia', 'Fiji'], correct: 2 },
+      { text: 'Which of these countries is in Africa?', choices: ['Jordan', 'Egypt', 'Nepal', 'Peru'], correct: 1 },
+      { text: 'What is the largest country in the world by area?', choices: ['Canada', 'China', 'United States', 'Russia'], correct: 3 },
+      { text: 'What is the capital of Canada?', choices: ['Toronto', 'Ottawa', 'Montreal', 'Vancouver'], correct: 1 },
+      { text: 'The Mariana Trench, the deepest place in the ocean, lies in which ocean?', choices: ['Atlantic', 'Indian', 'Pacific', 'Southern'], correct: 2 },
+      { text: 'Mount Everest sits on the border of Nepal and which other country?', choices: ['India', 'China', 'Bhutan', 'Pakistan'], correct: 1 }
+    ],
+    // Quiz 2: Lab Coats & Launchpads (Science & Space)
+    [
+      { text: 'What is the chemical symbol for gold?', choices: ['Go', 'Au', 'Ag', 'Gd'], correct: 1 },
+      { text: 'Which planet is known as the Red Planet?', choices: ['Venus', 'Jupiter', 'Mars', 'Mercury'], correct: 2 },
+      { text: 'What do plants absorb from the air to make food (photosynthesis)?', choices: ['Oxygen', 'Nitrogen', 'Hydrogen', 'Carbon dioxide'], correct: 3 },
+      { text: 'How many bones are in the adult human body?', choices: ['186', '196', '206', '216'], correct: 2 },
+      { text: 'Which is the largest planet in our solar system?', choices: ['Saturn', 'Jupiter', 'Neptune', 'Earth'], correct: 1 },
+      { text: 'Which gas makes up most of Earth\'s atmosphere?', choices: ['Oxygen', 'Carbon dioxide', 'Nitrogen', 'Hydrogen'], correct: 2 },
+      { text: 'Which of these is NOT a planet?', choices: ['Europa', 'Venus', 'Mercury', 'Mars'], correct: 0 },
+      { text: 'What is the approximate speed of light?', choices: ['30,000 km/s', '300,000 km/s', '3,000 km/s', '3,000,000 km/s'], correct: 1 },
+      { text: 'Which metal is a liquid at room temperature?', choices: ['Mercury', 'Aluminum', 'Lead', 'Zinc'], correct: 0 },
+      { text: 'What is the chemical formula for table salt?', choices: ['CO2', 'H2O', 'NaCl', 'O2'], correct: 2 },
+      { text: 'Which planet is closest to the Sun?', choices: ['Mercury', 'Venus', 'Mars', 'Jupiter'], correct: 0 },
+      { text: 'Which of these dinosaurs was a plant-eater?', choices: ['T. rex', 'Triceratops', 'Velociraptor', 'Allosaurus'], correct: 1 }
+    ],
+    // Quiz 3: Back in Time (History)
+    [
+      { text: 'Who was the first President of the United States?', choices: ['Thomas Jefferson', 'John Adams', 'George Washington', 'Benjamin Franklin'], correct: 2 },
+      { text: 'In which country is the Great Wall located?', choices: ['Japan', 'India', 'Mongolia', 'China'], correct: 3 },
+      { text: 'Who painted the Mona Lisa?', choices: ['Michelangelo', 'Leonardo da Vinci', 'Raphael', 'Donatello'], correct: 1 },
+      { text: 'In which year did World War II end?', choices: ['1943', '1944', '1945', '1946'], correct: 2 },
+      { text: 'Which country gave the Statue of Liberty to the United States?', choices: ['Britain', 'France', 'Spain', 'Italy'], correct: 1 },
+      { text: 'Who was the first person to walk on the Moon?', choices: ['Buzz Aldrin', 'Yuri Gagarin', 'Neil Armstrong', 'John Glenn'], correct: 2 },
+      { text: 'Which of these inventions came FIRST?', choices: ['The telephone', 'The printing press', 'The airplane', 'The television'], correct: 1 },
+      { text: 'In which year did the Titanic sink?', choices: ['1905', '1912', '1920', '1898'], correct: 1 },
+      { text: 'Who was the famous last pharaoh of ancient Egypt?', choices: ['Nefertiti', 'Cleopatra', 'Hatshepsut', 'Tutankhamun'], correct: 1 },
+      { text: 'Which ancient city was famous for its Hanging Gardens?', choices: ['Athens', 'Rome', 'Babylon', 'Alexandria'], correct: 2 },
+      { text: 'Who was the primary author of the Declaration of Independence?', choices: ['George Washington', 'Thomas Jefferson', 'Alexander Hamilton', 'John Adams'], correct: 1 },
+      { text: 'Which empire was ruled by a leader called a "tsar"?', choices: ['Ottoman', 'Russian', 'Austro-Hungarian', 'Persian'], correct: 1 }
+    ],
+    // Quiz 4: Screens & Speakers (Movies, TV & Music)
+    [
+      { text: 'Which movie features a talking snowman named Olaf?', choices: ['Moana', 'Tangled', 'Frozen', 'Encanto'], correct: 2 },
+      { text: 'In The Lion King, what is Simba\'s father\'s name?', choices: ['Scar', 'Rafiki', 'Zazu', 'Mufasa'], correct: 3 },
+      { text: 'Who sang the hit song \'Thriller\'?', choices: ['Prince', 'Michael Jackson', 'Elvis Presley', 'Bruno Mars'], correct: 1 },
+      { text: 'Which musical instrument has 88 keys?', choices: ['Guitar', 'Violin', 'Piano', 'Harp'], correct: 2 },
+      { text: 'Who directed Jurassic Park?', choices: ['Steven Spielberg', 'George Lucas', 'James Cameron', 'Christopher Nolan'], correct: 0 },
+      { text: 'Which band recorded the song \'Hey Jude\'?', choices: ['The Rolling Stones', 'The Beach Boys', 'The Beatles', 'Queen'], correct: 2 },
+      { text: 'In the Marvel movies, who plays Iron Man?', choices: ['Chris Evans', 'Chris Hemsworth', 'Mark Ruffalo', 'Robert Downey Jr.'], correct: 3 },
+      { text: 'Which animated movie follows a clownfish searching for his missing son?', choices: ['Shark Tale', 'Finding Nemo', 'Lilo & Stitch', 'Shrek'], correct: 1 },
+      { text: 'Which TV sitcom features Ross, Rachel, Monica, Chandler, Joey, and Phoebe?', choices: ['Seinfeld', 'How I Met Your Mother', 'Friends', 'The Big Bang Theory'], correct: 2 },
+      { text: 'In Star Wars, what is the name of Han Solo\'s ship?', choices: ['Millennium Falcon', 'Star Destroyer', 'X-wing', 'Enterprise'], correct: 0 },
+      { text: 'Which animated film won the very first Academy Award for Best Animated Feature?', choices: ['Monsters, Inc.', 'Shrek', 'Toy Story', 'Spirited Away'], correct: 1 },
+      { text: 'Which composer wrote "The Four Seasons"?', choices: ['Beethoven', 'Mozart', 'Vivaldi', 'Bach'], correct: 2 }
+    ],
+    // Quiz 5: Play Ball & Board (Sports & Games)
+    [
+      { text: 'How many players from one soccer team are on the field at once?', choices: ['9', '10', '11', '12'], correct: 2 },
+      { text: 'What sport is played at Wimbledon?', choices: ['Golf', 'Cricket', 'Tennis', 'Rugby'], correct: 2 },
+      { text: 'In the Super Mario video games, what is Mario\'s brother\'s name?', choices: ['Wario', 'Luigi', 'Yoshi', 'Toad'], correct: 1 },
+      { text: 'In chess, which piece can ONLY move diagonally?', choices: ['Rook', 'Knight', 'Bishop', 'Queen'], correct: 2 },
+      { text: 'How many rings are on the Olympic flag?', choices: ['4', '5', '6', '7'], correct: 1 },
+      { text: 'Which sport is played with a shuttlecock?', choices: ['Squash', 'Table tennis', 'Badminton', 'Racquetball'], correct: 2 },
+      { text: 'In bowling, what is a perfect game score?', choices: ['200', '250', '300', '350'], correct: 2 },
+      { text: 'Which country hosted the first modern Olympic Games?', choices: ['Italy', 'Greece', 'France', 'England'], correct: 1 },
+      { text: 'How many squares are on a standard chessboard?', choices: ['36', '49', '64', '81'], correct: 2 },
+      { text: 'In which country did the sport of golf originate?', choices: ['United States', 'Scotland', 'England', 'Ireland'], correct: 1 },
+      { text: 'In bowling, what is the term for three consecutive strikes?', choices: ['Hat trick', 'Turkey', 'Triple', 'Triple crown'], correct: 1 },
+      { text: 'How many minutes long is a standard professional soccer match (before stoppage time)?', choices: ['80', '90', '100', '120'], correct: 1 }
+    ]
+  ];
+  
   for (let i = 0; i < quizTitles.length; i++) {
     const quizResult = await client.query(
       'INSERT INTO quizzes (title, description) VALUES ($1, $2) RETURNING id',
@@ -686,15 +765,11 @@ const seedTestData = async (client) => {
     );
     const quizId = quizResult.rows[0].id;
     
-    // Add sample questions for each quiz
-    const sampleQuestions = [
-      { text: 'What is the capital of France?', choices: ['Paris', 'London', 'Berlin', 'Madrid'], correct: 0 },
-      { text: 'Which planet is known as the Red Planet?', choices: ['Venus', 'Jupiter', 'Mars', 'Mercury'], correct: 2 },
-      { text: 'Who painted the Mona Lisa?', choices: ['Michelangelo', 'Leonardo da Vinci', 'Raphael', 'Donatello'], correct: 1 }
-    ];
+    // Add all 12 questions for this quiz
+    const quizQuestions = allQuizQuestions[i];
     
-    for (let j = 0; j < sampleQuestions.length; j++) {
-      const q = sampleQuestions[j];
+    for (let j = 0; j < quizQuestions.length; j++) {
+      const q = quizQuestions[j];
       const questionResult = await client.query(
         'INSERT INTO questions (quiz_id, text, position) VALUES ($1, $2, $3) RETURNING id',
         [quizId, q.text, j + 1]
@@ -711,7 +786,7 @@ const seedTestData = async (client) => {
     }
   }
   
-  console.log('Sample quizzes and questions seeded for testing');
+  console.log('All quizzes and 12 questions each (60 total) seeded successfully');
 };
 
 // Initialize database first, then start server
