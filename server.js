@@ -642,54 +642,61 @@ const initializeDatabase = async () => {
       
       // Seed initial quizzes and questions for testing (only in development)
       if (process.env.NODE_ENV !== 'production') {
-        // Check per-quiz question counts to ensure each has exactly 12 questions
-        const quizCheck = await client.query(`
-          SELECT q.id, q.title, COUNT(qn.id) as question_count
-          FROM quizzes q
-          LEFT JOIN questions qn ON q.id = qn.quiz_id AND qn.deleted_at IS NULL
-          GROUP BY q.id, q.title
-          ORDER BY q.id
-        `);
+        // In development mode, always ensure we have fresh quiz data
+        // Clear all existing quiz-related data and re-seed with 5 quizzes x 12 questions each
+        console.log('Development mode: refreshing quiz data to ensure 5 quizzes with 12 questions each...');
         
-        const quizzes = quizCheck.rows;
-        let needsReseed = quizzes.length !== 5;
-        
-        // Check if any quiz doesn't have exactly 12 questions
-        if (!needsReseed) {
-          for (const quiz of quizzes) {
-            if (parseInt(quiz.question_count) !== 12) {
-              needsReseed = true;
-              console.log(`Quiz '${quiz.title}' has ${quiz.question_count} questions, expected 12. Will re-seed.`);
-              break;
+        try {
+          await client.query('BEGIN');
+          
+          // Clear all quiz-related data (but keep users)
+          await client.query('DELETE FROM attempt_answers');
+          await client.query('DELETE FROM attempts');
+          await client.query('DELETE FROM choices');
+          await client.query('DELETE FROM questions');
+          await client.query('DELETE FROM quizzes');
+          
+          // Seed fresh data
+          await seedTestData(client);
+          
+          await client.query('COMMIT');
+          
+          // Verify the seed worked
+          const verifyResult = await client.query(`
+            SELECT q.id, q.title, COUNT(qn.id) as question_count
+            FROM quizzes q
+            LEFT JOIN questions qn ON q.id = qn.quiz_id AND qn.deleted_at IS NULL
+            GROUP BY q.id, q.title
+            ORDER BY q.id
+          `);
+          
+          const verification = verifyResult.rows;
+          let allGood = verification.length === 5;
+          if (allGood) {
+            for (const q of verification) {
+              if (parseInt(q.question_count) !== 12) {
+                allGood = false;
+                break;
+              }
             }
           }
-        }
-        
-        // Also check if there are no quizzes at all
-        if (quizzes.length === 0) {
-          needsReseed = true;
-        }
-        
-        if (needsReseed) {
-          console.log('Re-seeding quiz data to ensure 5 quizzes with 12 questions each...');
-          // Clear existing quiz data in proper order to respect foreign keys
-          try {
-            await client.query('BEGIN');
-            await client.query('DELETE FROM attempt_answers');
-            await client.query('DELETE FROM attempts');
-            await client.query('DELETE FROM choices');
-            await client.query('DELETE FROM questions');
-            await client.query('DELETE FROM quizzes');
-            await seedTestData(client);
-            await client.query('COMMIT');
-            console.log('Quiz data re-seeded successfully: 5 quizzes with 12 questions each (60 total)');
-          } catch (err) {
-            await client.query('ROLLBACK');
-            console.error('Failed to re-seed quiz data:', err);
-            throw err;
+          
+          if (allGood) {
+            console.log('✓ Quiz data seeded successfully: 5 quizzes with 12 questions each (60 total)');
+            console.log('  - World Wander: 12 questions');
+            console.log('  - Lab Coats & Launchpads: 12 questions');
+            console.log('  - Back in Time: 12 questions');
+            console.log('  - Screens & Speakers: 12 questions');
+            console.log('  - Play Ball & Board: 12 questions');
+          } else {
+            console.error('✗ Quiz data verification failed!');
+            console.error('  Expected: 5 quizzes with 12 questions each');
+            console.error('  Got:', JSON.stringify(verification, null, 2));
           }
-        } else {
-          console.log('Quiz data verified: 5 quizzes with 12 questions each already present');
+        } catch (err) {
+          await client.query('ROLLBACK');
+          console.error('Failed to seed quiz data:', err);
+          throw err;
         }
       }
       
