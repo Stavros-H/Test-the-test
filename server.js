@@ -642,9 +642,9 @@ const initializeDatabase = async () => {
       
       // Seed initial quizzes and questions for testing (only in development)
       if (process.env.NODE_ENV !== 'production') {
-        // In development mode, always ensure we have fresh quiz data
-        // Clear all existing quiz-related data and re-seed with 5 quizzes x 12 questions each
-        console.log('Development mode: refreshing quiz data to ensure 5 quizzes with 12 questions each...');
+        // NEW APPROACH: Each quiz has its own dedicated question bank
+        // This ensures each quiz pulls from its own pool of 12 questions
+        console.log('Development mode: setting up dedicated question banks for each quiz...');
         
         try {
           await client.query('BEGIN');
@@ -656,43 +656,132 @@ const initializeDatabase = async () => {
           await client.query('DELETE FROM questions');
           await client.query('DELETE FROM quizzes');
           
-          // Seed fresh data
-          await seedTestData(client);
+          // Create 5 quizzes with their own dedicated question banks
+          const quizzes = [
+            { title: 'World Wander', description: 'Geography, capitals, oceans & landmarks' },
+            { title: 'Lab Coats & Launchpads', description: 'Science, space, and nature trivia' },
+            { title: 'Back in Time', description: 'World history and famous events' },
+            { title: 'Screens & Speakers', description: 'Movies, TV, and music trivia' },
+            { title: 'Play Ball & Board', description: 'Sports, games, and everyday trivia' }
+          ];
           
-          await client.query('COMMIT');
+          // Each quiz's dedicated question bank (12 questions each)
+          const quizQuestionBanks = [
+            // Quiz 1: World Wander
+            [
+              { text: 'What is the capital city of Japan?', choices: [['A', 'Kyoto', false], ['B', 'Osaka', false], ['C', 'Tokyo', true], ['D', 'Nagoya', false]] },
+              { text: 'Which is the largest ocean on Earth?', choices: [['A', 'Atlantic', false], ['B', 'Indian', false], ['C', 'Arctic', false], ['D', 'Pacific', true]] },
+              { text: 'How many continents are there?', choices: [['A', '5', false], ['B', '6', false], ['C', '7', true], ['D', '8', false]] },
+              { text: 'What is the capital of Australia?', choices: [['A', 'Sydney', false], ['B', 'Melbourne', false], ['C', 'Perth', false], ['D', 'Canberra', true]] },
+              { text: 'The Amazon Rainforest lies mostly in which country?', choices: [['A', 'Peru', false], ['B', 'Brazil', true], ['C', 'Colombia', false], ['D', 'Venezuela', false]] },
+              { text: 'Which river flows through Paris?', choices: [['A', 'Seine', true], ['B', 'Thames', false], ['C', 'Rhine', false], ['D', 'Danube', false]] },
+              { text: 'Which country is home to the Great Barrier Reef?', choices: [['A', 'Indonesia', false], ['B', 'Philippines', false], ['C', 'Australia', true], ['D', 'Fiji', false]] },
+              { text: 'Which of these countries is in Africa?', choices: [['A', 'Jordan', false], ['B', 'Egypt', true], ['C', 'Nepal', false], ['D', 'Peru', false]] },
+              { text: 'What is the largest country in the world by area?', choices: [['A', 'Canada', false], ['B', 'China', false], ['C', 'United States', false], ['D', 'Russia', true]] },
+              { text: 'What is the capital of Canada?', choices: [['A', 'Toronto', false], ['B', 'Ottawa', true], ['C', 'Montreal', false], ['D', 'Vancouver', false]] },
+              { text: 'The Mariana Trench lies in which ocean?', choices: [['A', 'Atlantic', false], ['B', 'Indian', false], ['C', 'Pacific', true], ['D', 'Southern', false]] },
+              { text: 'Mount Everest sits on the border of Nepal and which country?', choices: [['A', 'India', false], ['B', 'China', true], ['C', 'Bhutan', false], ['D', 'Pakistan', false]] }
+            ],
+            // Quiz 2: Lab Coats & Launchpads
+            [
+              { text: 'What is the chemical symbol for gold?', choices: [['A', 'Go', false], ['B', 'Au', true], ['C', 'Ag', false], ['D', 'Gd', false]] },
+              { text: 'Which planet is known as the Red Planet?', choices: [['A', 'Venus', false], ['B', 'Jupiter', false], ['C', 'Mars', true], ['D', 'Mercury', false]] },
+              { text: 'What do plants absorb from the air for photosynthesis?', choices: [['A', 'Oxygen', false], ['B', 'Nitrogen', false], ['C', 'Hydrogen', false], ['D', 'Carbon dioxide', true]] },
+              { text: 'How many bones are in the adult human body?', choices: [['A', '186', false], ['B', '196', false], ['C', '206', true], ['D', '216', false]] },
+              { text: 'Which is the largest planet in our solar system?', choices: [['A', 'Saturn', false], ['B', 'Jupiter', true], ['C', 'Neptune', false], ['D', 'Earth', false]] },
+              { text: 'Which gas makes up most of Earths atmosphere?', choices: [['A', 'Oxygen', false], ['B', 'Carbon dioxide', false], ['C', 'Nitrogen', true], ['D', 'Hydrogen', false]] },
+              { text: 'Which of these is NOT a planet?', choices: [['A', 'Europa', true], ['B', 'Venus', false], ['C', 'Mercury', false], ['D', 'Mars', false]] },
+              { text: 'What is the approximate speed of light?', choices: [['A', '30,000 km/s', false], ['B', '300,000 km/s', true], ['C', '3,000 km/s', false], ['D', '3,000,000 km/s', false]] },
+              { text: 'Which metal is liquid at room temperature?', choices: [['A', 'Mercury', true], ['B', 'Aluminum', false], ['C', 'Lead', false], ['D', 'Zinc', false]] },
+              { text: 'What is the chemical formula for table salt?', choices: [['A', 'CO2', false], ['B', 'H2O', false], ['C', 'NaCl', true], ['D', 'O2', false]] },
+              { text: 'Which planet is closest to the Sun?', choices: [['A', 'Mercury', true], ['B', 'Venus', false], ['C', 'Mars', false], ['D', 'Jupiter', false]] },
+              { text: 'Which dinosaur was a plant-eater?', choices: [['A', 'T. rex', false], ['B', 'Triceratops', true], ['C', 'Velociraptor', false], ['D', 'Allosaurus', false]] }
+            ],
+            // Quiz 3: Back in Time
+            [
+              { text: 'Who was the first President of the United States?', choices: [['A', 'Thomas Jefferson', false], ['B', 'John Adams', false], ['C', 'George Washington', true], ['D', 'Benjamin Franklin', false]] },
+              { text: 'In which country is the Great Wall located?', choices: [['A', 'Japan', false], ['B', 'India', false], ['C', 'Mongolia', false], ['D', 'China', true]] },
+              { text: 'Who painted the Mona Lisa?', choices: [['A', 'Michelangelo', false], ['B', 'Leonardo da Vinci', true], ['C', 'Raphael', false], ['D', 'Donatello', false]] },
+              { text: 'In which year did World War II end?', choices: [['A', '1943', false], ['B', '1944', false], ['C', '1945', true], ['D', '1946', false]] },
+              { text: 'Which country gave the Statue of Liberty to the US?', choices: [['A', 'Britain', false], ['B', 'France', true], ['C', 'Spain', false], ['D', 'Italy', false]] },
+              { text: 'Who was the first person to walk on the Moon?', choices: [['A', 'Buzz Aldrin', false], ['B', 'Yuri Gagarin', false], ['C', 'Neil Armstrong', true], ['D', 'John Glenn', false]] },
+              { text: 'Which invention came FIRST?', choices: [['A', 'The telephone', false], ['B', 'The printing press', true], ['C', 'The airplane', false], ['D', 'The television', false]] },
+              { text: 'In which year did the Titanic sink?', choices: [['A', '1905', false], ['B', '1912', true], ['C', '1920', false], ['D', '1898', false]] },
+              { text: 'Who was the last pharaoh of ancient Egypt?', choices: [['A', 'Nefertiti', false], ['B', 'Cleopatra', true], ['C', 'Hatshepsut', false], ['D', 'Tutankhamun', false]] },
+              { text: 'Which ancient city had the Hanging Gardens?', choices: [['A', 'Athens', false], ['B', 'Rome', false], ['C', 'Babylon', true], ['D', 'Alexandria', false]] },
+              { text: 'Who was the primary author of the Declaration of Independence?', choices: [['A', 'George Washington', false], ['B', 'Thomas Jefferson', true], ['C', 'Alexander Hamilton', false], ['D', 'John Adams', false]] },
+              { text: 'Which empire was ruled by a tsar?', choices: [['A', 'Ottoman', false], ['B', 'Russian', true], ['C', 'Austro-Hungarian', false], ['D', 'Persian', false]] }
+            ],
+            // Quiz 4: Screens & Speakers
+            [
+              { text: 'Which movie features a talking snowman named Olaf?', choices: [['A', 'Moana', false], ['B', 'Tangled', false], ['C', 'Frozen', true], ['D', 'Encanto', false]] },
+              { text: 'In The Lion King, what is Simbas father name?', choices: [['A', 'Scar', false], ['B', 'Rafiki', false], ['C', 'Zazu', false], ['D', 'Mufasa', true]] },
+              { text: 'Who sang Thriller?', choices: [['A', 'Prince', false], ['B', 'Michael Jackson', true], ['C', 'Elvis Presley', false], ['D', 'Bruno Mars', false]] },
+              { text: 'Which instrument has 88 keys?', choices: [['A', 'Guitar', false], ['B', 'Violin', false], ['C', 'Piano', true], ['D', 'Harp', false]] },
+              { text: 'Who directed Jurassic Park?', choices: [['A', 'Steven Spielberg', true], ['B', 'George Lucas', false], ['C', 'James Cameron', false], ['D', 'Christopher Nolan', false]] },
+              { text: 'Which band recorded Hey Jude?', choices: [['A', 'The Rolling Stones', false], ['B', 'The Beach Boys', false], ['C', 'The Beatles', true], ['D', 'Queen', false]] },
+              { text: 'Who plays Iron Man in Marvel movies?', choices: [['A', 'Chris Evans', false], ['B', 'Chris Hemsworth', false], ['C', 'Mark Ruffalo', false], ['D', 'Robert Downey Jr.', true]] },
+              { text: 'Which movie follows a clownfish searching for his son?', choices: [['A', 'Shark Tale', false], ['B', 'Finding Nemo', true], ['C', 'Lilo & Stitch', false], ['D', 'Shrek', false]] },
+              { text: 'Which sitcom features Ross, Rachel, Monica, Chandler, Joey, and Phoebe?', choices: [['A', 'Seinfeld', false], ['B', 'How I Met Your Mother', false], ['C', 'Friends', true], ['D', 'The Big Bang Theory', false]] },
+              { text: 'What is Han Solos ship called?', choices: [['A', 'Millennium Falcon', true], ['B', 'Star Destroyer', false], ['C', 'X-wing', false], ['D', 'Enterprise', false]] },
+              { text: 'Which film won the first Best Animated Feature Oscar?', choices: [['A', 'Monsters Inc.', false], ['B', 'Shrek', true], ['C', 'Toy Story', false], ['D', 'Spirited Away', false]] },
+              { text: 'Who composed The Four Seasons?', choices: [['A', 'Beethoven', false], ['B', 'Mozart', false], ['C', 'Vivaldi', true], ['D', 'Bach', false]] }
+            ],
+            // Quiz 5: Play Ball & Board
+            [
+              { text: 'How many players from one soccer team are on the field at once?', choices: [['A', '9', false], ['B', '10', false], ['C', '11', true], ['D', '12', false]] },
+              { text: 'What sport is played at Wimbledon?', choices: [['A', 'Golf', false], ['B', 'Cricket', false], ['C', 'Tennis', true], ['D', 'Rugby', false]] },
+              { text: 'In Super Mario, what is Marios brother name?', choices: [['A', 'Wario', false], ['B', 'Luigi', true], ['C', 'Yoshi', false], ['D', 'Toad', false]] },
+              { text: 'In chess, which piece can ONLY move diagonally?', choices: [['A', 'Rook', false], ['B', 'Knight', false], ['C', 'Bishop', true], ['D', 'Queen', false]] },
+              { text: 'How many rings are on the Olympic flag?', choices: [['A', '4', false], ['B', '5', true], ['C', '6', false], ['D', '7', false]] },
+              { text: 'Which sport is played with a shuttlecock?', choices: [['A', 'Squash', false], ['B', 'Table tennis', false], ['C', 'Badminton', true], ['D', 'Racquetball', false]] },
+              { text: 'In bowling, what is a perfect game score?', choices: [['A', '200', false], ['B', '250', false], ['C', '300', true], ['D', '350', false]] },
+              { text: 'Which country hosted the first modern Olympic Games?', choices: [['A', 'Italy', false], ['B', 'Greece', true], ['C', 'France', false], ['D', 'England', false]] },
+              { text: 'How many squares are on a standard chessboard?', choices: [['A', '36', false], ['B', '49', false], ['C', '64', true], ['D', '81', false]] },
+              { text: 'In which country did golf originate?', choices: [['A', 'United States', false], ['B', 'Scotland', true], ['C', 'England', false], ['D', 'Ireland', false]] },
+              { text: 'In bowling, what is three consecutive strikes called?', choices: [['A', 'Hat trick', false], ['B', 'Turkey', true], ['C', 'Triple', false], ['D', 'Triple crown', false]] },
+              { text: 'How many minutes is a standard professional soccer match?', choices: [['A', '80', false], ['B', '90', true], ['C', '100', false], ['D', '120', false]] }
+            ]
+          ];
           
-          // Verify the seed worked
-          const verifyResult = await client.query(`
-            SELECT q.id, q.title, COUNT(qn.id) as question_count
-            FROM quizzes q
-            LEFT JOIN questions qn ON q.id = qn.quiz_id AND qn.deleted_at IS NULL
-            GROUP BY q.id, q.title
-            ORDER BY q.id
-          `);
-          
-          const verification = verifyResult.rows;
-          let allGood = verification.length === 5;
-          if (allGood) {
-            for (const q of verification) {
-              if (parseInt(q.question_count) !== 12) {
-                allGood = false;
-                break;
+          // Insert each quiz with its dedicated question bank
+          for (let i = 0; i < quizzes.length; i++) {
+            const quiz = quizzes[i];
+            const questions = quizQuestionBanks[i];
+            
+            // Insert quiz
+            const quizResult = await client.query(
+              'INSERT INTO quizzes (title, description) VALUES ($1, $2) RETURNING id',
+              [quiz.title, quiz.description]
+            );
+            const quizId = quizResult.rows[0].id;
+            
+            // Insert each question with its choices
+            for (let j = 0; j < questions.length; j++) {
+              const q = questions[j];
+              
+              // Insert question
+              const questionResult = await client.query(
+                'INSERT INTO questions (quiz_id, text, position) VALUES ($1, $2, $3) RETURNING id',
+                [quizId, q.text, j + 1]
+              );
+              const questionId = questionResult.rows[0].id;
+              
+              // Insert choices
+              for (const [label, text, isCorrect] of q.choices) {
+                await client.query(
+                  'INSERT INTO choices (question_id, label, text, is_correct) VALUES ($1, $2, $3, $4)',
+                  [questionId, label, text, isCorrect]
+                );
               }
             }
+            
+            console.log(`  ✓ ${quiz.title}: 12 questions seeded`);
           }
           
-          if (allGood) {
-            console.log('✓ Quiz data seeded successfully: 5 quizzes with 12 questions each (60 total)');
-            console.log('  - World Wander: 12 questions');
-            console.log('  - Lab Coats & Launchpads: 12 questions');
-            console.log('  - Back in Time: 12 questions');
-            console.log('  - Screens & Speakers: 12 questions');
-            console.log('  - Play Ball & Board: 12 questions');
-          } else {
-            console.error('✗ Quiz data verification failed!');
-            console.error('  Expected: 5 quizzes with 12 questions each');
-            console.error('  Got:', JSON.stringify(verification, null, 2));
-          }
+          await client.query('COMMIT');
+          console.log('✓ All quizzes set up with dedicated 12-question banks (60 total)');
+          
         } catch (err) {
           await client.query('ROLLBACK');
           console.error('Failed to seed quiz data:', err);
