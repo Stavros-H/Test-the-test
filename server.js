@@ -643,8 +643,32 @@ const initializeDatabase = async () => {
       // Seed initial quizzes and questions for testing (only in development)
       if (process.env.NODE_ENV !== 'production') {
         const quizCheck = await client.query('SELECT COUNT(*) FROM quizzes');
-        if (parseInt(quizCheck.rows[0].count) === 0) {
+        const quizCount = parseInt(quizCheck.rows[0].count);
+        
+        // If no quizzes, or if quizzes exist but don't have 12 questions each, re-seed
+        if (quizCount === 0) {
           await seedTestData(client);
+        } else {
+          // Check if existing quizzes have the correct number of questions
+          const quizQuestionCheck = await client.query(`
+            SELECT COUNT(*) as total_questions 
+            FROM questions q
+            JOIN quizzes quiz ON q.quiz_id = quiz.id
+            WHERE q.deleted_at IS NULL
+          `);
+          const totalQuestions = parseInt(quizQuestionCheck.rows[0].total_questions);
+          
+          // If we don't have exactly 60 questions (5 quizzes * 12 questions), re-seed
+          if (totalQuestions !== 60) {
+            console.log(`Found ${quizCount} quizzes with ${totalQuestions} total questions. Re-seeding to ensure 12 questions per quiz (60 total)...`);
+            // Clear existing quiz data
+            await client.query('DELETE FROM attempt_answers');
+            await client.query('DELETE FROM attempts');
+            await client.query('DELETE FROM choices');
+            await client.query('DELETE FROM questions');
+            await client.query('DELETE FROM quizzes');
+            await seedTestData(client);
+          }
         }
       }
       
