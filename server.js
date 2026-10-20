@@ -368,8 +368,16 @@ app.post('/api/quizzes/:id/attempts', requireAuth, async (req, res) => {
     const attemptId = attemptResult.rows[0].id;
     
     // Shuffle choices for each question and store the order
+    // Get question text along with shuffled choices
     const shuffledQuestions = [];
     for (const qId of questionIds) {
+      // Get question text
+      const questionTextResult = await pool.query(
+        'SELECT text FROM questions WHERE id = $1',
+        [qId]
+      );
+      
+      // Get shuffled choices
       const choicesResult = await pool.query(`
         SELECT id, label, text FROM choices 
         WHERE question_id = $1
@@ -378,6 +386,7 @@ app.post('/api/quizzes/:id/attempts', requireAuth, async (req, res) => {
       
       shuffledQuestions.push({
         question_id: qId,
+        text: questionTextResult.rows[0]?.text || 'Question text',
         choices: choicesResult.rows
       });
     }
