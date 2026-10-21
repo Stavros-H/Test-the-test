@@ -98,20 +98,7 @@
             display: block;
         }
         
-        .quiz-nav {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        
-        .btn-next {
-            background-color: #2e8b57;
-        }
-        
-        .btn-finish {
-            background-color: #8b0000;
-        }
-        
+
         .points-display {
             font-size: 1.2rem;
             color: #2e7d32;
@@ -154,12 +141,6 @@
                 </div>
                 
                 <div id="feedback" class="feedback"></div>
-                
-                <div class="quiz-nav">
-                    <button id="prevBtn" class="btn" style="display: none;">Previous</button>
-                    <button id="nextBtn" class="btn btn-next" style="display: none;">Next</button>
-                    <button id="finishBtn" class="btn btn-finish" style="display: none;">Finish Quiz</button>
-                </div>
             </div>
         </main>
         
@@ -214,9 +195,7 @@
                 }
             });
             
-            // Setup navigation buttons
-            document.getElementById('nextBtn').addEventListener('click', nextQuestion);
-            document.getElementById('finishBtn').addEventListener('click', finishQuiz);
+
         });
         
         async function startAttempt(quizId) {
@@ -310,11 +289,7 @@
                 });
             });
             
-            // Update navigation buttons
-            const isLastQuestion = currentQuestionIndex >= quizData.question_count - 1;
-            document.getElementById('nextBtn').style.display = isLastQuestion ? 'none' : 'inline-block';
-            document.getElementById('finishBtn').style.display = isLastQuestion ? 'inline-block' : 'none';
-            document.getElementById('prevBtn').style.display = currentQuestionIndex > 0 ? 'inline-block' : 'none';
+
             
             // Reset timer for new question
             resetTimer();
@@ -390,14 +365,7 @@
                 // Disable all choices
                 document.querySelectorAll('.choice').forEach(c => c.classList.add('disabled'));
                 
-                // If this is the last question, show finish button
-                if (data.is_last_question) {
-                    document.getElementById('nextBtn').style.display = 'none';
-                    document.getElementById('finishBtn').style.display = 'inline-block';
-                } else {
-                    // Enable next button
-                    document.getElementById('nextBtn').style.display = 'inline-block';
-                }
+
                 
             } catch (err) {
                 console.error('Error submitting answer:', err);
@@ -431,18 +399,8 @@
             }
         }
         
-        function nextQuestion() {
-            currentQuestionIndex++;
-            displayQuestion();
-        }
-        
-        async function finishQuiz() {
+        async function completeQuiz() {
             stopTimer();
-            
-            // Submit any unanswered questions
-            for (let i = currentQuestionIndex; i < quizData.question_count; i++) {
-                await recordAnswer(null, 0);
-            }
             
             try {
                 const response = await fetch(`/api/attempts/${currentAttempt.attempt_id}/complete`, {
@@ -466,12 +424,6 @@
             }
         }
         
-        // Handle next button click
-        document.getElementById('nextBtn').addEventListener('click', async () => {
-            await submitAnswer(null);
-            nextQuestion();
-        });
-        
         // Handle choice selection and immediate submission
         document.addEventListener('click', async (e) => {
             if (e.target.closest('.choice') && !e.target.closest('.choice').classList.contains('disabled')) {
@@ -480,12 +432,15 @@
                 
                 await submitAnswer(choiceId);
                 
-                // If not last question, auto-advance after 1 second
-                if (!document.getElementById('finishBtn').style.display.includes('inline-block')) {
-                    setTimeout(() => {
-                        nextQuestion();
-                    }, 1000);
-                }
+                // Auto-advance to next question or complete quiz after 1 second
+                setTimeout(() => {
+                    if (currentQuestionIndex >= quizData.question_count - 1) {
+                        completeQuiz();
+                    } else {
+                        currentQuestionIndex++;
+                        displayQuestion();
+                    }
+                }, 1000);
             }
         });
     </script>
