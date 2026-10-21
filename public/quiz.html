@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Smarts - Quiz</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .quiz-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .quiz-progress {
+            font-size: 1.1rem;
+            color: #4a6fa5;
+        }
+        
+        .quiz-timer {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #d32f2f;
+        }
+        
+        .question-card {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .question-text {
+            font-size: 1.3rem;
+            margin-bottom: 30px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .choices {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .choice {
+            padding: 15px 20px;
+            background-color: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1rem;
+        }
+        
+        .choice:hover {
+            background-color: #e8f5e9;
+            border-color: #2e8b57;
+        }
+        
+        .choice.selected {
+            background-color: #2e8b57;
+            color: white;
+            border-color: #2e8b57;
+        }
+        
+        .choice.disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .feedback.correct {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            display: block;
+        }
+        
+        .feedback.incorrect {
+            background-color: #ffebee;
+            color: #d32f2f;
+            display: block;
+        }
+        
+
+        .points-display {
+            font-size: 1.2rem;
+            color: #2e7d32;
+            font-weight: bold;
+        }
+        
+        .time-bank-display {
+            font-size: 1rem;
+            color: #4a6fa5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Speed Smarts</h1>
+            <p id="quizTitle">Quiz</p>
+        </header>
+        
+        <nav>
+            <a href="/dashboard" class="btn">Dashboard</a>
+            <a href="/quizzes" class="btn">Back to Quizzes</a>
+            <a href="/" id="logoutBtn" class="btn">Logout</a>
+        </nav>
+        
+        <main>
+            <div class="quiz-container">
+                <div class="quiz-header">
+                    <div class="quiz-progress">
+                        Question <span id="currentQuestion">1</span> of <span id="totalQuestions">1</span>
+                    </div>
+                    <div>
+                        <div class="points-display">Points: <span id="currentPoints">0</span></div>
+                        <div class="time-bank-display">Time Bank: <span id="currentTimeBank">15</span>s</div>
+                    </div>
+                </div>
+                
+                <div id="quizContent">
+                    <p class="loading">Loading quiz...</p>
+                </div>
+                
+                <div id="feedback" class="feedback"></div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 Speed Smarts</p>
+        </footer>
+    </div>
+    
+    <script src="auth.js"></script>
+    <script>
+        let currentAttempt = null;
+        let currentQuestionIndex = 0;
+        let quizData = null;
+        let selectedChoice = null;
+        let timer = null;
+        let timeRemaining = 0;
+        let readingBuffer = 3;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication
+            try {
+                const response = await fetch('/api/auth/me');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+            } catch (err) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Get quiz ID from URL
+            const pathParts = window.location.pathname.split('/');
+            const quizId = parseInt(pathParts[2]);
+            
+            if (!quizId) {
+                window.location.href = '/quizzes';
+                return;
+            }
+            
+            // Start the quiz attempt
+            await startAttempt(quizId);
+            
+            // Setup logout
+            document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    window.location.href = '/login';
+                } catch (err) {
+                    console.error('Logout error:', err);
+                }
+            });
+            
+
+        });
+        
+        async function startAttempt(quizId) {
+            try {
+                const response = await fetch(`/api/quizzes/${quizId}/attempts`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to start quiz');
+                    window.location.href = '/quizzes';
+                    return;
+                }
+                
+                const data = await response.json();
+                currentAttempt = data;
+                quizData = {
+                    id: quizId,
+                    questions: data.questions,
+                    question_count: data.question_count
+                };
+                
+                // Update UI
+                document.getElementById('quizTitle').textContent = `Quiz ${quizId}`;
+                document.getElementById('totalQuestions').textContent = data.question_count;
+                
+                // Start with first question
+                currentQuestionIndex = 0;
+                timeRemaining = data.time_bank + data.reading_buffer;
+                readingBuffer = data.reading_buffer;
+                
+                displayQuestion();
+                startTimer();
+                
+            } catch (err) {
+                console.error('Error starting attempt:', err);
+                alert('Failed to start quiz. Please try again.');
+                window.location.href = '/quizzes';
+            }
+        }
+        
+        function displayQuestion() {
+            const questionData = quizData.questions[currentQuestionIndex];
+            const quizContent = document.getElementById('quizContent');
+            
+            document.getElementById('currentQuestion').textContent = currentQuestionIndex + 1;
+            document.getElementById('currentPoints').textContent = currentAttempt.points || 0;
+            document.getElementById('currentTimeBank').textContent = currentAttempt.time_bank || 15;
+            
+            let html = `
+                <div class="question-card">
+                    <div class="question-text">${questionData.text || 'Question text'}</div>
+                    <div class="choices">
+            `;
+            
+            questionData.choices.forEach((choice, index) => {
+                html += `
+                        <div class="choice" data-choice-id="${choice.id}" data-index="${index}">
+                            <strong>${choice.label}.</strong> ${choice.text}
+                        </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            quizContent.innerHTML = html;
+            
+            // Reset feedback
+            document.getElementById('feedback').className = 'feedback';
+            document.getElementById('feedback').textContent = '';
+            
+            // Reset selected choice
+            selectedChoice = null;
+            
+            // Add click handlers to choices
+            document.querySelectorAll('.choice').forEach(choiceEl => {
+                choiceEl.addEventListener('click', () => {
+                    // Remove selected class from all choices
+                    document.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+                    
+                    // Add selected class to clicked choice
+                    choiceEl.classList.add('selected');
+                    selectedChoice = {
+                        id: parseInt(choiceEl.dataset.choiceId),
+                        index: parseInt(choiceEl.dataset.index)
+                    };
+                });
+            });
+            
+
+            
+            // Reset timer for new question
+            resetTimer();
+        }
+        
+        function startTimer() {
+            if (timer) clearInterval(timer);
+            
+            timer = setInterval(() => {
+                timeRemaining--;
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(timer);
+                    // Time's up - auto-submit with no answer
+                    submitAnswer(null);
+                }
+            }, 1000);
+        }
+        
+        function resetTimer() {
+            if (timer) clearInterval(timer);
+            timeRemaining = (currentAttempt.time_bank || 15) + readingBuffer;
+            startTimer();
+        }
+        
+        function stopTimer() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+        
+        async function submitAnswer(choiceId) {
+            stopTimer();
+            
+            const questionData = quizData.questions[currentQuestionIndex];
+            const actualChoiceId = choiceId || selectedChoice?.id;
+            
+            if (!actualChoiceId && !choiceId) {
+                // No answer selected - mark as wrong with 0 seconds
+                await recordAnswer(null, 0);
+                return;
+            }
+            
+            // Calculate seconds remaining (B)
+            // Total time for this question = time_bank + reading_buffer
+            // Seconds remaining = timeRemaining
+            const secondsRemaining = Math.max(0, timeRemaining - readingBuffer);
+            
+            try {
+                const response = await fetch(`/api/attempts/${currentAttempt.attempt_id}/answers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question_id: questionData.question_id,
+                        choice_id: actualChoiceId,
+                        seconds_remaining: secondsRemaining
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Update attempt state
+                currentAttempt.score = (currentAttempt.score || 0) + (data.correct ? 1 : 0);
+                currentAttempt.points = (currentAttempt.points || 0) + data.points;
+                currentAttempt.time_bank = data.new_time_bank;
+                
+                // Show feedback
+                const feedbackEl = document.getElementById('feedback');
+                feedbackEl.textContent = data.correct ? 'Correct!' : 'Incorrect.';
+                feedbackEl.className = `feedback ${data.correct ? 'correct' : 'incorrect'}`;
+                
+                // Disable all choices
+                document.querySelectorAll('.choice').forEach(c => c.classList.add('disabled'));
+                
+
+                
+            } catch (err) {
+                console.error('Error submitting answer:', err);
+                alert('Failed to submit answer. Please try again.');
+            }
+        }
+        
+        async function recordAnswer(choiceId, secondsRemaining) {
+            const questionData = quizData.questions[currentQuestionIndex];
+            
+            try {
+                const response = await fetch(`/api/attempts/${currentAttempt.attempt_id}/answers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question_id: questionData.question_id,
+                        choice_id: choiceId,
+                        seconds_remaining: secondsRemaining
+                    })
+                });
+                
+                const data = await response.json();
+                currentAttempt.score = (currentAttempt.score || 0) + (data.correct ? 1 : 0);
+                currentAttempt.points = (currentAttempt.points || 0) + data.points;
+                currentAttempt.time_bank = data.new_time_bank;
+                
+                return data;
+            } catch (err) {
+                console.error('Error recording answer:', err);
+                return null;
+            }
+        }
+        
+        async function completeQuiz() {
+            stopTimer();
+            
+            try {
+                const response = await fetch(`/api/attempts/${currentAttempt.attempt_id}/complete`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                // Store results in sessionStorage for results page
+                sessionStorage.setItem('quizResults', JSON.stringify({
+                    ...data,
+                    quiz_id: quizData.id
+                }));
+                
+                // Redirect to results page
+                window.location.href = `/quizzes/${quizData.id}/results`;
+                
+            } catch (err) {
+                console.error('Error completing quiz:', err);
+                alert('Failed to complete quiz. Please try again.');
+            }
+        }
+        
+        // Handle choice selection and immediate submission
+        document.addEventListener('click', async (e) => {
+            if (e.target.closest('.choice') && !e.target.closest('.choice').classList.contains('disabled')) {
+                const choiceEl = e.target.closest('.choice');
+                const choiceId = parseInt(choiceEl.dataset.choiceId);
+                
+                await submitAnswer(choiceId);
+                
+                // Auto-advance to next question or complete quiz after 1 second
+                setTimeout(() => {
+                    if (currentQuestionIndex >= quizData.question_count - 1) {
+                        completeQuiz();
+                    } else {
+                        currentQuestionIndex++;
+                        displayQuestion();
+                    }
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+</html>
