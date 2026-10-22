@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Smarts - Leaderboards</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Speed Smarts</h1>
+            <p>Leaderboards</p>
+        </header>
+        
+        <nav>
+            <a href="/" class="btn">Home</a>
+            <a href="/dashboard" class="btn">Dashboard</a>
+            <a href="/quizzes" class="btn">Quizzes</a>
+            <a href="/history" class="btn">Your History</a>
+            <a href="/" id="logoutBtn" class="btn">Logout</a>
+        </nav>
+        
+        <main>
+            <section class="leaderboards-section">
+                <h2>Leaderboards</h2>
+                
+                <!-- Overall Leaderboard -->
+                <div class="leaderboard-card">
+                    <h3>Overall Leaderboard</h3>
+                    <p>Ranked by total completed quiz attempts</p>
+                    <div id="overallLeaderboard">
+                        <p class="loading">Loading overall leaderboard...</p>
+                    </div>
+                </div>
+                
+                <!-- Per-Quiz Leaderboards -->
+                <div class="leaderboard-card">
+                    <h3>Per-Quiz Leaderboards</h3>
+                    <p>Ranked by highest score, showing completed attempt count</p>
+                    <div id="quizLeaderboards">
+                        <p class="loading">Loading quiz leaderboards...</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 Speed Smarts</p>
+        </footer>
+    </div>
+    
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication
+            try {
+                const response = await fetch('/api/auth/me');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+            } catch (err) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Setup logout
+            document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    window.location.href = '/login';
+                } catch (err) {
+                    console.error('Logout error:', err);
+                }
+            });
+            
+            // Load leaderboards
+            await loadOverallLeaderboard();
+            await loadQuizLeaderboards();
+        });
+        
+        async function loadOverallLeaderboard() {
+            try {
+                const response = await fetch('/api/leaderboards/overall');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load overall leaderboard');
+                }
+                
+                const data = await response.json();
+                renderOverallLeaderboard(data.leaderboard);
+            } catch (err) {
+                console.error('Error loading overall leaderboard:', err);
+                document.getElementById('overallLeaderboard').innerHTML = `
+                    <div class="error-message show">
+                        Failed to load overall leaderboard
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadQuizLeaderboards() {
+            try {
+                // Get list of quizzes
+                const quizzesResponse = await fetch('/api/quizzes');
+                
+                if (!quizzesResponse.ok) {
+                    throw new Error('Failed to load quizzes');
+                }
+                
+                const quizzesData = await quizzesResponse.json();
+                const quizzes = quizzesData.quizzes;
+                
+                if (quizzes.length === 0) {
+                    document.getElementById('quizLeaderboards').innerHTML = `
+                        <p>No quizzes available.</p>
+                    `;
+                    return;
+                }
+                
+                // Load leaderboard for each quiz
+                const leaderboardsHtml = [];
+                
+                for (const quiz of quizzes) {
+                    const response = await fetch(`/api/leaderboards/quiz/${quiz.id}`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        leaderboardsHtml.push(renderQuizLeaderboard(data));
+                    }
+                }
+                
+                document.getElementById('quizLeaderboards').innerHTML = leaderboardsHtml.join('');
+            } catch (err) {
+                console.error('Error loading quiz leaderboards:', err);
+                document.getElementById('quizLeaderboards').innerHTML = `
+                    <div class="error-message show">
+                        Failed to load quiz leaderboards
+                    </div>
+                `;
+            }
+        }
+        
+        function renderOverallLeaderboard(leaderboard) {
+            if (leaderboard.length === 0) {
+                document.getElementById('overallLeaderboard').innerHTML = `
+                    <p>No completed attempts yet.</p>
+                `;
+                return;
+            }
+            
+            let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Completed Attempts</th></tr></thead><tbody>';
+            
+            leaderboard.forEach((entry, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${entry.username}</td>
+                        <td>${entry.total_completed_attempts}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('overallLeaderboard').innerHTML = html;
+        }
+        
+        function renderQuizLeaderboard(data) {
+            const leaderboard = data.leaderboard;
+            
+            if (leaderboard.length === 0) {
+                return `<div class="quiz-leaderboard"><h4>${data.quiz_title}</h4><p>No completed attempts yet.</p></div>`;
+            }
+            
+            let html = `<div class="quiz-leaderboard"><h4>${data.quiz_title}</h4><table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Highest Score</th><th>Attempts</th></tr></thead><tbody>`;
+            
+            leaderboard.forEach((entry, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${entry.username}</td>
+                        <td>${entry.highest_score}</td>
+                        <td>${entry.completed_attempts}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            return html;
+        }
+    </script>
+</body>
+</html>
