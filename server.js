@@ -556,6 +556,55 @@ app.post('/api/attempts/:id/complete', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/attempts - Get user's attempt history (completed only)
+app.get('/api/attempts', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await pool.query(`
+      SELECT 
+        a.id,
+        a.quiz_id,
+        q.title as quiz_title,
+        a.score,
+        a.question_count,
+        a.points,
+        a.timed_out,
+        a.started_at,
+        a.completed_at,
+        ROUND((a.score::float / a.question_count) * 100) as percentage
+      FROM attempts a
+      JOIN quizzes q ON a.quiz_id = q.id
+      WHERE a.user_id = $1 
+        AND a.completed_at IS NOT NULL
+      ORDER BY a.completed_at DESC
+    `, [userId]);
+    
+    const attempts = result.rows.map(row => ({
+      id: row.id,
+      quiz_id: row.quiz_id,
+      quiz_title: row.quiz_title,
+      score: row.score,
+      question_count: row.question_count,
+      percentage: row.percentage,
+      points: row.points,
+      timed_out: row.timed_out,
+      started_at: row.started_at,
+      completed_at: row.completed_at
+    }));
+    
+    res.json({ attempts });
+  } catch (err) {
+    console.error('Error fetching attempt history:', err);
+    res.status(500).json({ error: 'Failed to fetch attempt history: ' + err.message });
+  }
+});
+
+// GET /history - Serve attempt history page
+app.get('/history', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'history.html'));
+});
+
 // Initialize database
 const initializeDatabase = async () => {
   try {
