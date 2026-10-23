@@ -247,14 +247,14 @@
                 return;
             }
             
-            let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Highest Score</th><th>Highest Points</th><th>Attempts</th></tr></thead><tbody>';
+            let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Score</th><th>Points</th><th>Attempts</th></tr></thead><tbody>';
             
             leaderboard.forEach((entry, index) => {
                 html += `
                     <tr>
                         <td>${index + 1}</td>
                         <td>${entry.username}</td>
-                        <td>${entry.highest_score} / ${data.question_count || '?'}</td>
+                        <td>${entry.highest_score}</td>
                         <td>${entry.highest_points || 0}</td>
                         <td>${entry.completed_attempts}</td>
                     </tr>
