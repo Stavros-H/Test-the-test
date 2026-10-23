@@ -660,6 +660,7 @@ app.get('/api/leaderboards/quiz/:id', requireAuth, async (req, res) => {
         u.id,
         u.username,
         MAX(a.score) as highest_score,
+        MAX(a.points) as highest_points,
         COUNT(a.id) as completed_attempts
       FROM users u
       LEFT JOIN attempts a ON u.id = a.user_id 
@@ -673,6 +674,7 @@ app.get('/api/leaderboards/quiz/:id', requireAuth, async (req, res) => {
       user_id: row.id,
       username: row.username,
       highest_score: parseInt(row.highest_score || 0),
+      highest_points: parseInt(row.highest_points || 0),
       completed_attempts: parseInt(row.completed_attempts || 0)
     }));
     
@@ -684,6 +686,35 @@ app.get('/api/leaderboards/quiz/:id', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Error fetching quiz leaderboard:', err);
     res.status(500).json({ error: 'Failed to fetch quiz leaderboard: ' + err.message });
+  }
+});
+
+// GET /api/leaderboards/points - Points leaderboard ranked by total points
+app.get('/api/leaderboards/points', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        u.id,
+        u.username,
+        SUM(a.points) as total_points,
+        COUNT(a.id) as total_completed_attempts
+      FROM users u
+      LEFT JOIN attempts a ON u.id = a.user_id AND a.completed_at IS NOT NULL
+      GROUP BY u.id, u.username
+      ORDER BY total_points DESC
+    `);
+    
+    const leaderboard = result.rows.map(row => ({
+      user_id: row.id,
+      username: row.username,
+      total_points: parseInt(row.total_points || 0),
+      total_completed_attempts: parseInt(row.total_completed_attempts || 0)
+    }));
+    
+    res.json({ leaderboard });
+  } catch (err) {
+    console.error('Error fetching points leaderboard:', err);
+    res.status(500).json({ error: 'Failed to fetch points leaderboard: ' + err.message });
   }
 });
 

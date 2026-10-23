@@ -25,21 +25,21 @@
             <section class="leaderboards-section">
                 <h2>Leaderboards</h2>
                 
-                <!-- Overall Leaderboard -->
+                <!-- Overall Leaderboard by Attempts -->
                 <div class="leaderboard-card">
-                    <h3>Overall Leaderboard</h3>
+                    <h3>Overall Leaderboard - Most Active</h3>
                     <p>Ranked by total completed quiz attempts</p>
                     <div id="overallLeaderboard">
                         <p class="loading">Loading overall leaderboard...</p>
                     </div>
                 </div>
                 
-                <!-- Per-Quiz Leaderboards -->
+                <!-- Points Leaderboard -->
                 <div class="leaderboard-card">
-                    <h3>Per-Quiz Leaderboards</h3>
-                    <p>Ranked by highest score, showing completed attempt count</p>
-                    <div id="quizLeaderboards">
-                        <p class="loading">Loading quiz leaderboards...</p>
+                    <h3>Points Leaderboard</h3>
+                    <p>Ranked by total points earned across all quizzes</p>
+                    <div id="pointsLeaderboard">
+                        <p class="loading">Loading points leaderboard...</p>
                     </div>
                 </div>
             </section>
@@ -78,7 +78,7 @@
             
             // Load leaderboards
             await loadOverallLeaderboard();
-            await loadQuizLeaderboards();
+            await loadPointsLeaderboard();
         });
         
         async function loadOverallLeaderboard() {
@@ -101,43 +101,21 @@
             }
         }
         
-        async function loadQuizLeaderboards() {
+        async function loadPointsLeaderboard() {
             try {
-                // Get list of quizzes
-                const quizzesResponse = await fetch('/api/quizzes');
+                const response = await fetch('/api/leaderboards/points');
                 
-                if (!quizzesResponse.ok) {
-                    throw new Error('Failed to load quizzes');
+                if (response.ok) {
+                    const data = await response.json();
+                    renderPointsLeaderboard(data.leaderboard);
+                } else {
+                    throw new Error('Failed to load points leaderboard');
                 }
-                
-                const quizzesData = await quizzesResponse.json();
-                const quizzes = quizzesData.quizzes;
-                
-                if (quizzes.length === 0) {
-                    document.getElementById('quizLeaderboards').innerHTML = `
-                        <p>No quizzes available.</p>
-                    `;
-                    return;
-                }
-                
-                // Load leaderboard for each quiz
-                const leaderboardsHtml = [];
-                
-                for (const quiz of quizzes) {
-                    const response = await fetch(`/api/leaderboards/quiz/${quiz.id}`);
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        leaderboardsHtml.push(renderQuizLeaderboard(data));
-                    }
-                }
-                
-                document.getElementById('quizLeaderboards').innerHTML = leaderboardsHtml.join('');
             } catch (err) {
-                console.error('Error loading quiz leaderboards:', err);
-                document.getElementById('quizLeaderboards').innerHTML = `
+                console.error('Error loading points leaderboard:', err);
+                document.getElementById('pointsLeaderboard').innerHTML = `
                     <div class="error-message show">
-                        Failed to load quiz leaderboards
+                        Failed to load points leaderboard
                     </div>
                 `;
             }
@@ -165,6 +143,31 @@
             
             html += '</tbody></table>';
             document.getElementById('overallLeaderboard').innerHTML = html;
+        }
+        
+        function renderPointsLeaderboard(leaderboard) {
+            if (leaderboard.length === 0) {
+                document.getElementById('pointsLeaderboard').innerHTML = `
+                    <p>No points earned yet.</p>
+                `;
+                return;
+            }
+            
+            let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Total Points</th><th>Completed Attempts</th></tr></thead><tbody>';
+            
+            leaderboard.forEach((entry, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${entry.username}</td>
+                        <td>${entry.total_points}</td>
+                        <td>${entry.total_completed_attempts}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('pointsLeaderboard').innerHTML = html;
         }
         
         function renderQuizLeaderboard(data) {
