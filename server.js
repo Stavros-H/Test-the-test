@@ -689,25 +689,25 @@ app.get('/api/leaderboards/quiz/:id', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/leaderboards/points - Points leaderboard ranked by total points
+// GET /api/leaderboards/points - Points leaderboard ranked by highest single attempt points
 app.get('/api/leaderboards/points', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
         u.id,
         u.username,
-        SUM(a.points) as total_points,
+        MAX(a.points) as highest_points,
         COUNT(a.id) as total_completed_attempts
       FROM users u
       LEFT JOIN attempts a ON u.id = a.user_id AND a.completed_at IS NOT NULL
       GROUP BY u.id, u.username
-      ORDER BY total_points DESC
+      ORDER BY highest_points DESC
     `);
     
     const leaderboard = result.rows.map(row => ({
       user_id: row.id,
       username: row.username,
-      total_points: parseInt(row.total_points || 0),
+      total_points: parseInt(row.highest_points || 0),
       total_completed_attempts: parseInt(row.total_completed_attempts || 0)
     }));
     
