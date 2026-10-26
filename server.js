@@ -1129,19 +1129,17 @@ const initializeDatabase = async () => {
       
       // Seed initial quizzes and questions for testing (only in development)
       if (process.env.NODE_ENV !== 'production') {
-        // NEW APPROACH: Each quiz has its own dedicated question bank
-        // This ensures each quiz pulls from its own pool of 12 questions
-        console.log('Development mode: setting up dedicated question banks for each quiz...');
-        
-        try {
-          await client.query('BEGIN');
-          
-          // Clear all quiz-related data (but keep users)
-          await client.query('DELETE FROM attempt_answers');
-          await client.query('DELETE FROM attempts');
-          await client.query('DELETE FROM choices');
-          await client.query('DELETE FROM questions');
-          await client.query('DELETE FROM quizzes');
+        const existingQuizCount = await client.query(
+          'SELECT COUNT(*)::int AS count FROM quizzes'
+        );
+
+        if (existingQuizCount.rows[0].count === 0) {
+          // Each quiz gets its own question bank. Seed only an empty database;
+          // never replace existing quiz or attempt data during startup.
+          console.log('Development mode: seeding initial quiz question banks...');
+
+          try {
+            await client.query('BEGIN');
           
           // Create 5 quizzes with their own dedicated question banks
           const quizzes = [
@@ -1266,13 +1264,17 @@ const initializeDatabase = async () => {
             console.log(`  ✓ ${quiz.title}: 12 questions seeded`);
           }
           
-          await client.query('COMMIT');
-          console.log('✓ All quizzes set up with dedicated 12-question banks (60 total)');
-          
-        } catch (err) {
-          await client.query('ROLLBACK');
-          console.error('Failed to seed quiz data:', err);
-          throw err;
+            await client.query('COMMIT');
+            console.log('✓ All quizzes set up with dedicated 12-question banks (60 total)');
+          } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Failed to seed quiz data:', err);
+            throw err;
+          }
+        } else {
+          console.log(
+            `Preserving existing quizzes and attempt history (${existingQuizCount.rows[0].count} quizzes found).`
+          );
         }
       }
       
