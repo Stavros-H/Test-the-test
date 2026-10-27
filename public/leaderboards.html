@@ -37,7 +37,7 @@
                 <!-- Points Leaderboard -->
                 <div class="leaderboard-card">
                     <h3>Points Leaderboard</h3>
-                    <p>Ranked by total points earned across all quizzes</p>
+                    <p>Ranked by highest single attempt points</p>
                     <div id="pointsLeaderboard">
                         <p class="loading">Loading points leaderboard...</p>
                     </div>
@@ -153,7 +153,7 @@
                 return;
             }
             
-            let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Total Points</th><th>Completed Attempts</th></tr></thead><tbody>';
+            let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Highest Points</th><th>Completed Attempts</th></tr></thead><tbody>';
             
             leaderboard.forEach((entry, index) => {
                 html += `
