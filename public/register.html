@@ -40,6 +40,20 @@
                     <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
                 </div>
                 
+                <div class="form-group">
+                    <label>Account Type</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="role" id="roleStudent" value="player" checked>
+                            <span>Student</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="role" id="roleEducator" value="teacher">
+                            <span>Educator</span>
+                        </label>
+                    </div>
+                </div>
+                
                 <button type="submit" class="btn btn-primary">Register</button>
                 
                 <div id="errorMessage" class="error-message"></div>

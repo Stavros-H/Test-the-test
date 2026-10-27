@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
+            const role = document.querySelector('input[name="role"]:checked').value;
             const errorMessage = document.getElementById('errorMessage');
             const successMessage = document.getElementById('successMessage');
             
@@ -31,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, password })
+                    body: JSON.stringify({ username, email, password, role })
                 });
                 
                 const data = await response.json();
