@@ -693,25 +693,35 @@ app.get('/api/leaderboards/quiz/:id', requireAuth, async (req, res) => {
 app.get('/api/leaderboards/points', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT DISTINCT ON (u.id)
-        u.id,
-        u.username,
-        a.points as highest_points,
-        q.id as quiz_id,
-        q.title as quiz_title
-      FROM users u
-      LEFT JOIN attempts a ON u.id = a.user_id AND a.completed_at IS NOT NULL
-      LEFT JOIN quizzes q ON a.quiz_id = q.id
-      WHERE a.points IS NOT NULL
-      ORDER BY u.id, a.points DESC
+      WITH ranked_attempts AS (
+        SELECT
+          u.id AS user_id,
+          u.username,
+          a.points AS highest_points,
+          q.id AS quiz_id,
+          q.title AS quiz_title,
+          ROW_NUMBER() OVER (
+            PARTITION BY u.id
+            ORDER BY a.points DESC, a.completed_at DESC, a.id DESC
+          ) AS attempt_rank
+        FROM users u
+        JOIN attempts a ON a.user_id = u.id
+        JOIN quizzes q ON q.id = a.quiz_id
+        WHERE a.completed_at IS NOT NULL
+          AND a.points IS NOT NULL
+      )
+      SELECT user_id, username, highest_points, quiz_id, quiz_title
+      FROM ranked_attempts
+      WHERE attempt_rank = 1
+      ORDER BY highest_points DESC, username ASC
     `);
     
     const leaderboard = result.rows.map(row => ({
-      user_id: row.id,
+      user_id: row.user_id,
       username: row.username,
       highest_points: parseInt(row.highest_points || 0),
       quiz_id: row.quiz_id,
-      quiz_title: row.quiz_title || 'Unknown Quiz'
+      quiz_title: row.quiz_title || 'Unknown quiz'
     }));
     
     res.json({ leaderboard });

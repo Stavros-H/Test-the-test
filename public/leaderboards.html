@@ -156,12 +156,23 @@
             let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Highest Points</th><th>Quiz</th></tr></thead><tbody>';
             
             leaderboard.forEach((entry, index) => {
+                const highestPoints = entry.highest_points
+                    ?? entry.highestPoints
+                    ?? entry.best_points
+                    ?? entry.points
+                    ?? 0;
+                const quizTitle = entry.quiz_title
+                    ?? entry.quizTitle
+                    ?? entry.quiz_name
+                    ?? entry.quizName
+                    ?? entry.quiz?.title
+                    ?? 'Unknown quiz';
                 html += `
                     <tr>
                         <td>${index + 1}</td>
-                        <td>${entry.username}</td>
-                        <td>${entry.highest_points}</td>
-                        <td>${entry.quiz_title}</td>
+                        <td>${entry.username ?? 'Unknown user'}</td>
+                        <td>${highestPoints}</td>
+                        <td>${quizTitle}</td>
                     </tr>
                 `;
             });
