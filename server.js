@@ -693,22 +693,25 @@ app.get('/api/leaderboards/quiz/:id', requireAuth, async (req, res) => {
 app.get('/api/leaderboards/points', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT 
+      SELECT DISTINCT ON (u.id)
         u.id,
         u.username,
-        MAX(a.points) as highest_points,
-        COUNT(a.id) as total_completed_attempts
+        a.points as highest_points,
+        q.id as quiz_id,
+        q.title as quiz_title
       FROM users u
       LEFT JOIN attempts a ON u.id = a.user_id AND a.completed_at IS NOT NULL
-      GROUP BY u.id, u.username
-      ORDER BY highest_points DESC
+      LEFT JOIN quizzes q ON a.quiz_id = q.id
+      WHERE a.points IS NOT NULL
+      ORDER BY u.id, a.points DESC
     `);
     
     const leaderboard = result.rows.map(row => ({
       user_id: row.id,
       username: row.username,
-      total_points: parseInt(row.highest_points || 0),
-      total_completed_attempts: parseInt(row.total_completed_attempts || 0)
+      highest_points: parseInt(row.highest_points || 0),
+      quiz_id: row.quiz_id,
+      quiz_title: row.quiz_title || 'Unknown Quiz'
     }));
     
     res.json({ leaderboard });
