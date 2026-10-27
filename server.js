@@ -663,11 +663,11 @@ app.get('/api/leaderboards/quiz/:id', requireAuth, async (req, res) => {
         MAX(a.points) as highest_points,
         COUNT(a.id) as completed_attempts
       FROM users u
-      LEFT JOIN attempts a ON u.id = a.user_id 
+      INNER JOIN attempts a ON u.id = a.user_id 
         AND a.quiz_id = $1 
         AND a.completed_at IS NOT NULL
       GROUP BY u.id, u.username
-      ORDER BY highest_score DESC
+      ORDER BY highest_score DESC, highest_points DESC
     `, [quizId]);
     
     const leaderboard = result.rows.map(row => ({
