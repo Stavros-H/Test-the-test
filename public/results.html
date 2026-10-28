@@ -109,6 +109,15 @@
                         <p class="loading">Loading results...</p>
                     </div>
                     
+                    <!-- Per-Quiz Leaderboard -->
+                    <div class="leaderboard-card" style="margin-top: 30px;">
+                        <h3>Quiz Leaderboard</h3>
+                        <p>Ranked by highest score</p>
+                        <div id="quizLeaderboard">
+                            <p class="loading">Loading quiz leaderboard...</p>
+                        </div>
+                    </div>
+                    
                     <div class="actions">
                         <a href="/quizzes" class="btn btn-back">Back to Quizzes</a>
                         <button id="retryBtn" class="btn btn-retry">Retry Quiz</button>
@@ -208,6 +217,52 @@
             `;
             
             resultsContent.innerHTML = html;
+            
+            // Load per-quiz leaderboard
+            loadQuizLeaderboard(data.quiz_id);
+        }
+        
+        async function loadQuizLeaderboard(quizId) {
+            try {
+                const response = await fetch(`/api/leaderboards/quiz/${quizId}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderQuizLeaderboard(data);
+                } else {
+                    document.getElementById('quizLeaderboard').innerHTML = '<p>Failed to load leaderboard</p>';
+                }
+            } catch (err) {
+                console.error('Error loading quiz leaderboard:', err);
+                document.getElementById('quizLeaderboard').innerHTML = '<p>Failed to load leaderboard</p>';
+            }
+        }
+        
+        function renderQuizLeaderboard(data) {
+            const leaderboard = data.leaderboard;
+            const container = document.getElementById('quizLeaderboard');
+            
+            if (leaderboard.length === 0) {
+                container.innerHTML = '<p>No completed attempts yet.</p>';
+                return;
+            }
+            
+            let html = '<table class="leaderboard-table"><thead><tr><th>Rank</th><th>Username</th><th>Score</th><th>Points</th><th>Attempts</th></tr></thead><tbody>';
+            
+            leaderboard.forEach((entry, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${entry.username}</td>
+                        <td>${entry.highest_score}</td>
+                        <td>${entry.highest_points || 0}</td>
+                        <td>${entry.completed_attempts}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
         }
     </script>
 </body>

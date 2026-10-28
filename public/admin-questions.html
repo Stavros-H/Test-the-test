@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Smarts - Admin Question Editor</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .question-editor {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .question-form {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        
+        .form-row label {
+            font-weight: bold;
+            color: #4a6fa5;
+        }
+        
+        .form-row select,
+        .form-row input,
+        .form-row textarea {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .form-row textarea {
+            grid-column: span 2;
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .choices-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+        
+        .choice-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .choice-input input[type="text"] {
+            flex: 1;
+        }
+        
+        .choice-input input[type="radio"] {
+            width: auto;
+        }
+        
+        .questions-list {
+            margin-top: 30px;
+        }
+        
+        .question-item {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #eee;
+        }
+        
+        .question-item header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .question-item h4 {
+            color: #4a6fa5;
+            margin: 0;
+        }
+        
+        .question-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-small {
+            padding: 5px 15px;
+            font-size: 0.9rem;
+        }
+        
+        .btn-danger {
+            background-color: #d32f2f;
+        }
+        
+        .btn-danger:hover {
+            background-color: #b71c1c;
+        }
+        
+        .btn-warning {
+            background-color: #ff9800;
+        }
+        
+        .btn-warning:hover {
+            background-color: #e68a00;
+        }
+        
+        .csv-section {
+            margin-top: 40px;
+            padding: 30px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .csv-textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+        
+        .csv-preview {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 15px;
+            background-color: #fff;
+        }
+        
+        .csv-preview-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .csv-preview-table th,
+        .csv-preview-table td {
+            padding: 8px;
+            border: 1px solid #eee;
+            text-align: left;
+        }
+        
+        .csv-preview-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .preview-error {
+            color: #d32f2f;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Speed Smarts</h1>
+            <p>Admin - Question Editor</p>
+        </header>
+        
+        <nav>
+            <a href="/" class="btn">Home</a>
+            <a href="/dashboard" class="btn">Dashboard</a>
+            <a href="/admin" class="btn">Admin Panel</a>
+            <a href="/" id="logoutBtn" class="btn">Logout</a>
+        </nav>
+        
+        <main>
+            <div class="question-editor">
+                <!-- Create Question Form -->
+                <div class="question-form">
+                    <h3>Create New Question</h3>
+                    
+                    <div class="form-row">
+                        <label for="quizSelect">Quiz:</label>
+                        <select id="quizSelect">
+                            <option value="">Select a quiz...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <label for="questionText">Question Text:</label>
+                        <textarea id="questionText" placeholder="Enter the question text..."></textarea>
+                    </div>
+                    
+                    <div class="choices-section">
+                        <h4>Choices (Exactly one must be correct)</h4>
+                        <div class="choice-input">
+                            <strong>A.</strong>
+                            <input type="text" id="choiceA" placeholder="Choice A">
+                            <input type="radio" name="correctChoice" value="A" id="correctA">
+                            <label for="correctA">Correct</label>
+                        </div>
+                        <div class="choice-input">
+                            <strong>B.</strong>
+                            <input type="text" id="choiceB" placeholder="Choice B">
+                            <input type="radio" name="correctChoice" value="B" id="correctB">
+                            <label for="correctB">Correct</label>
+                        </div>
+                        <div class="choice-input">
+                            <strong>C.</strong>
+                            <input type="text" id="choiceC" placeholder="Choice C">
+                            <input type="radio" name="correctChoice" value="C" id="correctC">
+                            <label for="correctC">Correct</label>
+                        </div>
+                        <div class="choice-input">
+                            <strong>D.</strong>
+                            <input type="text" id="choiceD" placeholder="Choice D">
+                            <input type="radio" name="correctChoice" value="D" id="correctD">
+                            <label for="correctD">Correct</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <label>&nbsp;</label>
+                        <button id="createQuestionBtn" class="btn btn-primary">Create Question</button>
+                    </div>
+                    
+                    <div id="createMessage" class="error-message" style="display: none;"></div>
+                </div>
+                
+                <!-- CSV Import Section -->
+                <div class="csv-section">
+                    <h3>CSV Import</h3>
+                    <p>Upload questions via CSV. Format: quiz_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_choice</p>
+                    
+                    <textarea id="csvData" class="csv-textarea" placeholder="Paste CSV data here..."></textarea>
+                    
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button id="previewCsvBtn" class="btn">Preview CSV</button>
+                        <button id="importCsvBtn" class="btn btn-primary" style="display: none;">Import CSV</button>
+                    </div>
+                    
+                    <div id="csvPreview" class="csv-preview" style="display: none;"></div>
+                    <div id="csvMessage"></div>
+                </div>
+                
+                <!-- Questions List -->
+                <div class="questions-list">
+                    <h3>Existing Questions</h3>
+                    <button id="refreshQuestionsBtn" class="btn" style="margin-bottom: 15px;">Refresh List</button>
+                    <div id="questionsList">
+                        <p class="loading">Loading questions...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 Speed Smarts</p>
+        </footer>
+    </div>
+    
+    <script src="auth.js"></script>
+    <script>
+        let quizzes = [];
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication and admin role
+            try {
+                const response = await fetch('/api/auth/me');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                if (data.user.role !== 'teacher') {
+                    alert('Admin access required');
+                    window.location.href = '/dashboard';
+                    return;
+                }
+            } catch (err) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Setup logout
+            document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    window.location.href = '/login';
+                } catch (err) {
+                    console.error('Logout error:', err);
+                }
+            });
+            
+            // Load quizzes
+            await loadQuizzes();
+            
+            // Load questions
+            await loadQuestions();
+            
+            // Setup event listeners
+            document.getElementById('createQuestionBtn').addEventListener('click', createQuestion);
+            document.getElementById('previewCsvBtn').addEventListener('click', previewCsv);
+            document.getElementById('importCsvBtn').addEventListener('click', importCsv);
+            document.getElementById('refreshQuestionsBtn').addEventListener('click', loadQuestions);
+        });
+        
+        async function loadQuizzes() {
+            try {
+                const response = await fetch('/api/quizzes');
+                if (response.ok) {
+                    const data = await response.json();
+                    quizzes = data.quizzes;
+                    
+                    const select = document.getElementById('quizSelect');
+                    select.innerHTML = '<option value="">Select a quiz...</option>';
+                    
+                    quizzes.forEach(quiz => {
+                        const option = document.createElement('option');
+                        option.value = quiz.id;
+                        option.textContent = quiz.title;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading quizzes:', err);
+            }
+        }
+        
+        async function createQuestion() {
+            const quizId = document.getElementById('quizSelect').value;
+            const text = document.getElementById('questionText').value.trim();
+            const choiceA = document.getElementById('choiceA').value.trim();
+            const choiceB = document.getElementById('choiceB').value.trim();
+            const choiceC = document.getElementById('choiceC').value.trim();
+            const choiceD = document.getElementById('choiceD').value.trim();
+            const correctChoice = document.querySelector('input[name="correctChoice"]:checked')?.value;
+            
+            if (!quizId) {
+                showMessage('Please select a quiz', 'error');
+                return;
+            }
+            
+            if (!text) {
+                showMessage('Please enter question text', 'error');
+                return;
+            }
+            
+            if (!choiceA || !choiceB || !choiceC || !choiceD) {
+                showMessage('All 4 choices are required', 'error');
+                return;
+            }
+            
+            if (!correctChoice) {
+                showMessage('Please select a correct answer', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/questions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        quiz_id: parseInt(quizId),
+                        text: text,
+                        choices: [
+                            { text: choiceA, is_correct: correctChoice === 'A' },
+                            { text: choiceB, is_correct: correctChoice === 'B' },
+                            { text: choiceC, is_correct: correctChoice === 'C' },
+                            { text: choiceD, is_correct: correctChoice === 'D' }
+                        ]
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Question created successfully!', 'success');
+                    document.getElementById('questionText').value = '';
+                    document.getElementById('choiceA').value = '';
+                    document.getElementById('choiceB').value = '';
+                    document.getElementById('choiceC').value = '';
+                    document.getElementById('choiceD').value = '';
+                    document.querySelectorAll('input[name="correctChoice"]').forEach(r => r.checked = false);
+                    loadQuestions();
+                } else {
+                    showMessage(data.error || 'Failed to create question', 'error');
+                }
+            } catch (err) {
+                console.error('Error creating question:', err);
+                showMessage('Failed to create question', 'error');
+            }
+        }
+        
+        async function loadQuestions() {
+            try {
+                const response = await fetch('/api/admin/questions');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderQuestions(data.questions);
+                } else {
+                    const error = await response.json();
+                    document.getElementById('questionsList').innerHTML = `
+                        <div class="error-message show">${error.error || 'Failed to load questions'}</div>
+                    `;
+                }
+            } catch (err) {
+                console.error('Error loading questions:', err);
+                document.getElementById('questionsList').innerHTML = `
+                    <div class="error-message show">Failed to load questions</div>
+                `;
+            }
+        }
+        
+        function renderQuestions(questions) {
+            if (questions.length === 0) {
+                document.getElementById('questionsList').innerHTML = '<p>No questions found.</p>';
+                return;
+            }
+            
+            let html = '';
+            
+            questions.forEach(question => {
+                const quizTitle = quizzes.find(q => q.id === question.quiz_id)?.title || 'Unknown Quiz';
+                
+                html += `
+                    <div class="question-item">
+                        <header>
+                            <h4>Quiz: ${quizTitle}</h4>
+                            <div class="question-actions">
+                                <button class="btn btn-small btn-warning" onclick="editQuestion(${question.id})">Edit</button>
+                                <button class="btn btn-small btn-danger" onclick="deleteQuestion(${question.id})">Delete</button>
+                            </div>
+                        </header>
+                        <p><strong>Q:</strong> ${question.question_text}</p>
+                        <div style="margin-top: 10px;">
+                `;
+                
+                question.choices.forEach(choice => {
+                    const correctMarker = choice.is_correct ? ' ✓' : '';
+                    html += `<p><strong>${choice.label}:</strong> ${choice.text}${correctMarker}</p>`;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('questionsList').innerHTML = html;
+        }
+        
+        async function previewCsv() {
+            const csvData = document.getElementById('csvData').value;
+            
+            if (!csvData.trim()) {
+                showMessage('Please paste CSV data', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/csv/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csv_data: csvData })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    renderCsvPreview(data);
+                    document.getElementById('importCsvBtn').style.display = 'inline-block';
+                } else {
+                    showMessage(data.error || 'Failed to preview CSV', 'error');
+                }
+            } catch (err) {
+                console.error('Error previewing CSV:', err);
+                showMessage('Failed to preview CSV', 'error');
+            }
+        }
+        
+        async function importCsv() {
+            const csvData = document.getElementById('csvData').value;
+            
+            if (!csvData.trim()) {
+                showMessage('Please paste CSV data', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/csv/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csv_data: csvData })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('CSV imported successfully!', 'success');
+                    document.getElementById('csvData').value = '';
+                    document.getElementById('csvPreview').style.display = 'none';
+                    document.getElementById('importCsvBtn').style.display = 'none';
+                    loadQuestions();
+                } else {
+                    showMessage(data.error || 'Failed to import CSV', 'error');
+                }
+            } catch (err) {
+                console.error('Error importing CSV:', err);
+                showMessage('Failed to import CSV', 'error');
+            }
+        }
+        
+        function renderCsvPreview(data) {
+            const previewDiv = document.getElementById('csvPreview');
+            
+            if (data.invalid_count > 0) {
+                previewDiv.innerHTML = `
+                    <h4>Preview (${data.valid_count} valid, ${data.invalid_count} invalid)</h4>
+                    <div class="preview-error">
+                        <strong>Invalid rows:</strong>
+                        ${data.invalid.map(e => `Row ${e.row}: ${e.errors.join(', ')}`).join('<br>')}
+                    </div>
+                    <h4 style="margin-top: 15px;">Valid Rows:</h4>
+                    <table class="csv-preview-table">
+                        <thead><tr><th>Row</th><th>Quiz</th><th>Question</th><th>Choices</th><th>Correct</th></tr></thead>
+                        <tbody>
+                            ${data.valid.map(row => `
+                                <tr>
+                                    <td>${row.row}</td>
+                                    <td>${row.quiz_id}</td>
+                                    <td>${row.question_text.substring(0, 50)}${row.question_text.length > 50 ? '...' : ''}</td>
+                                    <td>A:${row.choices.A.substring(0,20)}<br>B:${row.choices.B.substring(0,20)}<br>C:${row.choices.C.substring(0,20)}<br>D:${row.choices.D.substring(0,20)}</td>
+                                    <td>${row.correct_choice}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                previewDiv.innerHTML = `
+                    <h4>Preview (${data.valid_count} valid rows)</h4>
+                    <table class="csv-preview-table">
+                        <thead><tr><th>Row</th><th>Quiz</th><th>Question</th><th>Choices</th><th>Correct</th></tr></thead>
+                        <tbody>
+                            ${data.valid.map(row => `
+                                <tr>
+                                    <td>${row.row}</td>
+                                    <td>${row.quiz_id}</td>
+                                    <td>${row.question_text.substring(0, 50)}${row.question_text.length > 50 ? '...' : ''}</td>
+                                    <td>A:${row.choices.A.substring(0,20)}<br>B:${row.choices.B.substring(0,20)}<br>C:${row.choices.C.substring(0,20)}<br>D:${row.choices.D.substring(0,20)}</td>
+                                    <td>${row.correct_choice}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            previewDiv.style.display = 'block';
+        }
+        
+        function editQuestion(id) {
+            alert('Edit functionality would be implemented here. For now, delete and recreate.');
+        }
+        
+        async function deleteQuestion(id) {
+            if (!confirm('Are you sure you want to delete this question?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/questions/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Question deleted successfully!', 'success');
+                    loadQuestions();
+                } else {
+                    showMessage(data.error || 'Failed to delete question', 'error');
+                }
+            } catch (err) {
+                console.error('Error deleting question:', err);
+                showMessage('Failed to delete question', 'error');
+            }
+        }
+        
+        function showMessage(message, type) {
+            const msgDiv = document.getElementById(type === 'error' ? 'createMessage' : 'csvMessage');
+            msgDiv.textContent = message;
+            msgDiv.className = type === 'error' ? 'error-message show' : 'success-message show';
+            msgDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    msgDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+    </script>
+</body>
+</html>

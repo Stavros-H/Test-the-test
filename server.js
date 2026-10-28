@@ -101,6 +101,13 @@ app.get('/admin', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// GET /admin/questions - Serve admin question editor
+app.get('/admin/questions', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-questions.html'));
+});
+
+// GET /leaderboards - Serve leaderboards page (moved before admin routes)
+
 // GET /quizzes - List all quizzes
 app.get('/quizzes', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'quizzes.html'));
@@ -605,6 +612,441 @@ app.get('/history', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'history.html'));
 });
 
+// GET /leaderboards - Serve leaderboards page
+app.get('/leaderboards', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'leaderboards.html'));
+});
+
+// GET /api/leaderboards/overall - Overall leaderboard ranked by total completed attempts
+app.get('/api/leaderboards/overall', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        u.id,
+        u.username,
+        COUNT(a.id) as total_completed_attempts
+      FROM users u
+      LEFT JOIN attempts a ON u.id = a.user_id AND a.completed_at IS NOT NULL
+      GROUP BY u.id, u.username
+      ORDER BY total_completed_attempts DESC
+    `);
+    
+    const leaderboard = result.rows.map(row => ({
+      user_id: row.id,
+      username: row.username,
+      total_completed_attempts: parseInt(row.total_completed_attempts)
+    }));
+    
+    res.json({ leaderboard });
+  } catch (err) {
+    console.error('Error fetching overall leaderboard:', err);
+    res.status(500).json({ error: 'Failed to fetch overall leaderboard: ' + err.message });
+  }
+});
+
+// GET /api/leaderboards/quiz/:id - Per-quiz leaderboard ranked by highest score
+app.get('/api/leaderboards/quiz/:id', requireAuth, async (req, res) => {
+  try {
+    const quizId = parseInt(req.params.id);
+    
+    // Verify quiz exists
+    const quizResult = await pool.query('SELECT id, title FROM quizzes WHERE id = $1', [quizId]);
+    if (quizResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
+    
+    const result = await pool.query(`
+      SELECT 
+        u.id,
+        u.username,
+        MAX(a.score) as highest_score,
+        MAX(a.points) as highest_points,
+        COUNT(a.id) as completed_attempts
+      FROM users u
+      INNER JOIN attempts a ON u.id = a.user_id 
+        AND a.quiz_id = $1 
+        AND a.completed_at IS NOT NULL
+      GROUP BY u.id, u.username
+      ORDER BY highest_score DESC, highest_points DESC
+    `, [quizId]);
+    
+    const leaderboard = result.rows.map(row => ({
+      user_id: row.id,
+      username: row.username,
+      highest_score: parseInt(row.highest_score || 0),
+      highest_points: parseInt(row.highest_points || 0),
+      completed_attempts: parseInt(row.completed_attempts || 0)
+    }));
+    
+    res.json({
+      quiz_id: quizId,
+      quiz_title: quizResult.rows[0].title,
+      leaderboard
+    });
+  } catch (err) {
+    console.error('Error fetching quiz leaderboard:', err);
+    res.status(500).json({ error: 'Failed to fetch quiz leaderboard: ' + err.message });
+  }
+});
+
+// GET /api/leaderboards/points - Points leaderboard ranked by highest single attempt points
+app.get('/api/leaderboards/points', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      WITH ranked_attempts AS (
+        SELECT
+          u.id AS user_id,
+          u.username,
+          a.points AS highest_points,
+          q.id AS quiz_id,
+          q.title AS quiz_title,
+          ROW_NUMBER() OVER (
+            PARTITION BY u.id
+            ORDER BY a.points DESC, a.completed_at DESC, a.id DESC
+          ) AS attempt_rank
+        FROM users u
+        JOIN attempts a ON a.user_id = u.id
+        JOIN quizzes q ON q.id = a.quiz_id
+        WHERE a.completed_at IS NOT NULL
+          AND a.points IS NOT NULL
+      )
+      SELECT user_id, username, highest_points, quiz_id, quiz_title
+      FROM ranked_attempts
+      WHERE attempt_rank = 1
+      ORDER BY highest_points DESC, username ASC
+    `);
+    
+    const leaderboard = result.rows.map(row => ({
+      user_id: row.user_id,
+      username: row.username,
+      highest_points: parseInt(row.highest_points || 0),
+      quiz_id: row.quiz_id,
+      quiz_title: row.quiz_title || 'Unknown quiz'
+    }));
+    
+    res.json({ leaderboard });
+  } catch (err) {
+    console.error('Error fetching points leaderboard:', err);
+    res.status(500).json({ error: 'Failed to fetch points leaderboard: ' + err.message });
+  }
+});
+
+// GET /admin - Admin-only route (already exists, but adding editor routes)
+
+// GET /api/admin/questions - Get all questions for admin
+app.get('/api/admin/questions', requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        q.id,
+        q.quiz_id,
+        qz.title as quiz_title,
+        q.text as question_text,
+        q.position,
+        json_agg(json_build_object(
+          'id', c.id,
+          'label', c.label,
+          'text', c.text,
+          'is_correct', c.is_correct
+        )) as choices
+      FROM questions q
+      JOIN quizzes qz ON q.quiz_id = qz.id
+      LEFT JOIN choices c ON q.id = c.question_id
+      WHERE q.deleted_at IS NULL
+      GROUP BY q.id, q.quiz_id, qz.title, q.text, q.position
+      ORDER BY q.quiz_id, q.position
+    `);
+    
+    res.json({ questions: result.rows });
+  } catch (err) {
+    console.error('Error fetching questions:', err);
+    res.status(500).json({ error: 'Failed to fetch questions: ' + err.message });
+  }
+});
+
+// POST /api/admin/questions - Create a new question
+app.post('/api/admin/questions', requireAdmin, async (req, res) => {
+  try {
+    const { quiz_id, text, choices } = req.body;
+    
+    if (!quiz_id || !text || !choices || choices.length !== 4) {
+      return res.status(400).json({ error: 'quiz_id, text, and 4 choices are required' });
+    }
+    
+    // Verify exactly one correct choice
+    const correctCount = choices.filter(c => c.is_correct).length;
+    if (correctCount !== 1) {
+      return res.status(400).json({ error: 'Exactly one choice must be marked as correct' });
+    }
+    
+    // Verify quiz exists
+    const quizResult = await pool.query('SELECT id FROM quizzes WHERE id = $1', [quiz_id]);
+    if (quizResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
+    
+    // Get next position
+    const positionResult = await pool.query(
+      'SELECT COALESCE(MAX(position), 0) + 1 as next_position FROM questions WHERE quiz_id = $1',
+      [quiz_id]
+    );
+    const position = positionResult.rows[0].next_position;
+    
+    // Create question
+    const questionResult = await pool.query(`
+      INSERT INTO questions (quiz_id, text, position)
+      VALUES ($1, $2, $3)
+      RETURNING id
+    `, [quiz_id, text, position]);
+    
+    const questionId = questionResult.rows[0].id;
+    
+    // Create choices
+    const labels = ['A', 'B', 'C', 'D'];
+    for (let i = 0; i < choices.length; i++) {
+      await pool.query(`
+        INSERT INTO choices (question_id, label, text, is_correct)
+        VALUES ($1, $2, $3, $4)
+      `, [questionId, labels[i], choices[i].text, choices[i].is_correct || false]);
+    }
+    
+    res.status(201).json({ message: 'Question created successfully', question_id: questionId });
+  } catch (err) {
+    console.error('Error creating question:', err);
+    res.status(500).json({ error: 'Failed to create question: ' + err.message });
+  }
+});
+
+// PUT /api/admin/questions/:id - Update a question
+app.put('/api/admin/questions/:id', requireAdmin, async (req, res) => {
+  try {
+    const questionId = parseInt(req.params.id);
+    const { text, choices } = req.body;
+    
+    if (!text || !choices || choices.length !== 4) {
+      return res.status(400).json({ error: 'text and 4 choices are required' });
+    }
+    
+    // Verify exactly one correct choice
+    const correctCount = choices.filter(c => c.is_correct).length;
+    if (correctCount !== 1) {
+      return res.status(400).json({ error: 'Exactly one choice must be marked as correct' });
+    }
+    
+    // Update question
+    await pool.query('UPDATE questions SET text = $1 WHERE id = $2', [text, questionId]);
+    
+    // Update choices
+    const labels = ['A', 'B', 'C', 'D'];
+    for (let i = 0; i < choices.length; i++) {
+      await pool.query(`
+        UPDATE choices 
+        SET text = $1, is_correct = $2
+        WHERE question_id = $3 AND label = $4
+      `, [choices[i].text, choices[i].is_correct || false, questionId, labels[i]]);
+    }
+    
+    res.json({ message: 'Question updated successfully' });
+  } catch (err) {
+    console.error('Error updating question:', err);
+    res.status(500).json({ error: 'Failed to update question: ' + err.message });
+  }
+});
+
+// DELETE /api/admin/questions/:id - Delete a question
+app.delete('/api/admin/questions/:id', requireAdmin, async (req, res) => {
+  try {
+    const questionId = parseInt(req.params.id);
+    
+    // Soft delete by setting deleted_at
+    await pool.query('UPDATE questions SET deleted_at = NOW() WHERE id = $1', [questionId]);
+    
+    res.json({ message: 'Question deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting question:', err);
+    res.status(500).json({ error: 'Failed to delete question: ' + err.message });
+  }
+});
+
+// POST /api/admin/csv/preview - Preview CSV import
+app.post('/api/admin/csv/preview', requireAdmin, async (req, res) => {
+  try {
+    const { csv_data } = req.body;
+    
+    if (!csv_data) {
+      return res.status(400).json({ error: 'CSV data is required' });
+    }
+    
+    // Parse CSV (simple parsing - expects newline separated, comma separated)
+    const lines = csv_data.split('\n').filter(l => l.trim());
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    
+    // Expected headers: quiz_id, question_text, choice_a, choice_b, choice_c, choice_d, correct_choice
+    const requiredHeaders = ['quiz_id', 'question_text', 'choice_a', 'choice_b', 'choice_c', 'choice_d', 'correct_choice'];
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    
+    if (missingHeaders.length > 0) {
+      return res.status(400).json({
+        error: 'Missing required headers',
+        missing: missingHeaders
+      });
+    }
+    
+    // Parse rows
+    const rows = [];
+    const errors = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      const row = {};
+      
+      headers.forEach((h, idx) => {
+        row[h] = values[idx] || '';
+      });
+      
+      // Validate
+      const rowErrors = [];
+      
+      if (!row.quiz_id || isNaN(parseInt(row.quiz_id))) {
+        rowErrors.push('Invalid quiz_id');
+      }
+      
+      if (!row.question_text) {
+        rowErrors.push('Missing question_text');
+      }
+      
+      const choices = ['a', 'b', 'c', 'd'];
+      let hasEmptyChoice = false;
+      choices.forEach(c => {
+        if (!row[`choice_${c}`]) hasEmptyChoice = true;
+      });
+      if (hasEmptyChoice) {
+        rowErrors.push('Missing one or more choices');
+      }
+      
+      const correctChoice = row.correct_choice?.toUpperCase();
+      if (!correctChoice || !['A', 'B', 'C', 'D'].includes(correctChoice)) {
+        rowErrors.push('Invalid correct_choice (must be A, B, C, or D)');
+      }
+      
+      if (rowErrors.length > 0) {
+        errors.push({ row: i + 1, errors: rowErrors });
+      } else {
+        rows.push({
+          row: i + 1,
+          quiz_id: parseInt(row.quiz_id),
+          question_text: row.question_text,
+          choices: {
+            A: row.choice_a,
+            B: row.choice_b,
+            C: row.choice_c,
+            D: row.choice_d
+          },
+          correct_choice: correctChoice
+        });
+      }
+    }
+    
+    res.json({
+      valid: rows,
+      invalid: errors,
+      total_rows: lines.length - 1,
+      valid_count: rows.length,
+      invalid_count: errors.length
+    });
+  } catch (err) {
+    console.error('Error previewing CSV:', err);
+    res.status(500).json({ error: 'Failed to preview CSV: ' + err.message });
+  }
+});
+
+// POST /api/admin/csv/import - Import CSV data
+app.post('/api/admin/csv/import', requireAdmin, async (req, res) => {
+  try {
+    const { csv_data } = req.body;
+    
+    if (!csv_data) {
+      return res.status(400).json({ error: 'CSV data is required' });
+    }
+    
+    // Parse CSV
+    const lines = csv_data.split('\n').filter(l => l.trim());
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    
+    // Validate headers
+    const requiredHeaders = ['quiz_id', 'question_text', 'choice_a', 'choice_b', 'choice_c', 'choice_d', 'correct_choice'];
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    
+    if (missingHeaders.length > 0) {
+      return res.status(400).json({
+        error: 'Missing required headers',
+        missing: missingHeaders
+      });
+    }
+    
+    // Process valid rows
+    const importedCount = 0;
+    const skippedCount = 0;
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      const row = {};
+      
+      headers.forEach((h, idx) => {
+        row[h] = values[idx] || '';
+      });
+      
+      // Skip invalid rows
+      if (!row.quiz_id || !row.question_text || 
+          !row.choice_a || !row.choice_b || !row.choice_c || !row.choice_d ||
+          !row.correct_choice || !['A', 'B', 'C', 'D'].includes(row.correct_choice.toUpperCase())) {
+        continue;
+      }
+      
+      const quizId = parseInt(row.quiz_id);
+      
+      // Verify quiz exists
+      const quizResult = await pool.query('SELECT id FROM quizzes WHERE id = $1', [quizId]);
+      if (quizResult.rows.length === 0) {
+        continue;
+      }
+      
+      // Get next position
+      const positionResult = await pool.query(
+        'SELECT COALESCE(MAX(position), 0) + 1 as next_position FROM questions WHERE quiz_id = $1',
+        [quizId]
+      );
+      const position = positionResult.rows[0].next_position;
+      
+      // Create question
+      const questionResult = await pool.query(`
+        INSERT INTO questions (quiz_id, text, position)
+        VALUES ($1, $2, $3)
+        RETURNING id
+      `, [quizId, row.question_text, position]);
+      
+      const questionId = questionResult.rows[0].id;
+      
+      // Create choices
+      const labels = ['A', 'B', 'C', 'D'];
+      for (const label of labels) {
+        const isCorrect = label === row.correct_choice.toUpperCase();
+        await pool.query(`
+          INSERT INTO choices (question_id, label, text, is_correct)
+          VALUES ($1, $2, $3, $4)
+        `, [questionId, label, row[`choice_${label.toLowerCase()}`], isCorrect]);
+      }
+    }
+    
+    res.json({
+      message: 'CSV import completed successfully'
+    });
+  } catch (err) {
+    console.error('Error importing CSV:', err);
+    res.status(500).json({ error: 'Failed to import CSV: ' + err.message });
+  }
+});
+
 // Initialize database
 const initializeDatabase = async () => {
   try {
@@ -700,19 +1142,17 @@ const initializeDatabase = async () => {
       
       // Seed initial quizzes and questions for testing (only in development)
       if (process.env.NODE_ENV !== 'production') {
-        // NEW APPROACH: Each quiz has its own dedicated question bank
-        // This ensures each quiz pulls from its own pool of 12 questions
-        console.log('Development mode: setting up dedicated question banks for each quiz...');
-        
-        try {
-          await client.query('BEGIN');
-          
-          // Clear all quiz-related data (but keep users)
-          await client.query('DELETE FROM attempt_answers');
-          await client.query('DELETE FROM attempts');
-          await client.query('DELETE FROM choices');
-          await client.query('DELETE FROM questions');
-          await client.query('DELETE FROM quizzes');
+        const existingQuizCount = await client.query(
+          'SELECT COUNT(*)::int AS count FROM quizzes'
+        );
+
+        if (existingQuizCount.rows[0].count === 0) {
+          // Each quiz gets its own question bank. Seed only an empty database;
+          // never replace existing quiz or attempt data during startup.
+          console.log('Development mode: seeding initial quiz question banks...');
+
+          try {
+            await client.query('BEGIN');
           
           // Create 5 quizzes with their own dedicated question banks
           const quizzes = [
@@ -837,13 +1277,17 @@ const initializeDatabase = async () => {
             console.log(`  ✓ ${quiz.title}: 12 questions seeded`);
           }
           
-          await client.query('COMMIT');
-          console.log('✓ All quizzes set up with dedicated 12-question banks (60 total)');
-          
-        } catch (err) {
-          await client.query('ROLLBACK');
-          console.error('Failed to seed quiz data:', err);
-          throw err;
+            await client.query('COMMIT');
+            console.log('✓ All quizzes set up with dedicated 12-question banks (60 total)');
+          } catch (err) {
+            await client.query('ROLLBACK');
+            console.error('Failed to seed quiz data:', err);
+            throw err;
+          }
+        } else {
+          console.log(
+            `Preserving existing quizzes and attempt history (${existingQuizCount.rows[0].count} quizzes found).`
+          );
         }
       }
       
