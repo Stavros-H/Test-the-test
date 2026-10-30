@@ -133,6 +133,7 @@
                     <div>
                         <div class="points-display">Points: <span id="currentPoints">0</span></div>
                         <div class="time-bank-display">Time Bank: <span id="currentTimeBank">15</span>s</div>
+                        <div class="quiz-timer">Timer: <span id="quizTimer">0</span>s</div>
                     </div>
                 </div>
                 
@@ -227,6 +228,7 @@
                 currentQuestionIndex = 0;
                 timeRemaining = data.time_bank + data.reading_buffer;
                 readingBuffer = data.reading_buffer;
+                serverTimestamp = new Date(data.server_timestamp).getTime();
                 
                 displayQuestion();
                 startTimer();
@@ -289,7 +291,10 @@
                 });
             });
             
-
+            // Update displays
+            document.getElementById('currentQuestion').textContent = currentQuestionIndex + 1;
+            document.getElementById('currentPoints').textContent = currentAttempt.points || 0;
+            document.getElementById('currentTimeBank').textContent = currentAttempt.time_bank || 15;
             
             // Reset timer for new question
             resetTimer();
@@ -297,21 +302,38 @@
         
         function startTimer() {
             if (timer) clearInterval(timer);
+            updateTimerDisplay();
             
             timer = setInterval(() => {
                 timeRemaining--;
+                updateTimerDisplay();
                 
                 if (timeRemaining <= 0) {
                     clearInterval(timer);
                     // Time's up - auto-submit with no answer
-                    submitAnswer(null);
+                    submitAnswer(null, true);
                 }
             }, 1000);
+        }
+        
+        function updateTimerDisplay() {
+            const timerEl = document.getElementById('quizTimer');
+            if (timerEl) {
+                timerEl.textContent = Math.max(0, timeRemaining);
+                if (timeRemaining > 10) {
+                    timerEl.style.color = '#22C55E';
+                } else if (timeRemaining > 5) {
+                    timerEl.style.color = '#FACC15';
+                } else {
+                    timerEl.style.color = '#d32f2f';
+                }
+            }
         }
         
         function resetTimer() {
             if (timer) clearInterval(timer);
             timeRemaining = (currentAttempt.time_bank || 15) + readingBuffer;
+            updateTimerDisplay();
             startTimer();
         }
         
@@ -322,22 +344,23 @@
             }
         }
         
-        async function submitAnswer(choiceId) {
+        async function submitAnswer(choiceId, isTimeout = false) {
             stopTimer();
             
             const questionData = quizData.questions[currentQuestionIndex];
             const actualChoiceId = choiceId || selectedChoice?.id;
+            const now = new Date().toISOString();
             
-            if (!actualChoiceId && !choiceId) {
+            if (!actualChoiceId && !choiceId && !isTimeout) {
                 // No answer selected - mark as wrong with 0 seconds
-                await recordAnswer(null, 0);
-                return;
+                await recordAnswer(null, 0, now);
+                return null;
             }
             
-            // Calculate seconds remaining (B)
-            // Total time for this question = time_bank + reading_buffer
-            // Seconds remaining = timeRemaining
-            const secondsRemaining = Math.max(0, timeRemaining - readingBuffer);
+            if (isTimeout) {
+                const data = await recordAnswer(null, 0, now, true);
+                return data;
+            }
             
             try {
                 const response = await fetch(`/api/attempts/${currentAttempt.attempt_id}/answers`, {
@@ -346,7 +369,7 @@
                     body: JSON.stringify({
                         question_id: questionData.question_id,
                         choice_id: actualChoiceId,
-                        seconds_remaining: secondsRemaining
+                        seconds_remaining: Math.max(0, timeRemaining - readingBuffer)
                     })
                 });
                 
@@ -359,21 +382,27 @@
                 
                 // Show feedback
                 const feedbackEl = document.getElementById('feedback');
-                feedbackEl.textContent = data.correct ? 'Correct!' : 'Incorrect.';
-                feedbackEl.className = `feedback ${data.correct ? 'correct' : 'incorrect'}`;
+                if (data.timed_out) {
+                    feedbackEl.textContent = 'Ouch - time!';
+                    feedbackEl.className = 'feedback incorrect';
+                } else {
+                    feedbackEl.textContent = data.correct ? 'Correct!' : 'Incorrect.';
+                    feedbackEl.className = `feedback ${data.correct ? 'correct' : 'incorrect'}`;
+                }
                 
                 // Disable all choices
                 document.querySelectorAll('.choice').forEach(c => c.classList.add('disabled'));
                 
-
+                return data;
                 
             } catch (err) {
                 console.error('Error submitting answer:', err);
                 alert('Failed to submit answer. Please try again.');
+                return null;
             }
         }
         
-        async function recordAnswer(choiceId, secondsRemaining) {
+        async function recordAnswer(choiceId, secondsRemaining, clientTimestamp, isTimeout = false) {
             const questionData = quizData.questions[currentQuestionIndex];
             
             try {
@@ -388,6 +417,12 @@
                 });
                 
                 const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Server error:', data.error);
+                    return null;
+                }
+                
                 currentAttempt.score = (currentAttempt.score || 0) + (data.correct ? 1 : 0);
                 currentAttempt.points = (currentAttempt.points || 0) + data.points;
                 currentAttempt.time_bank = data.new_time_bank;
@@ -430,17 +465,19 @@
                 const choiceEl = e.target.closest('.choice');
                 const choiceId = parseInt(choiceEl.dataset.choiceId);
                 
-                await submitAnswer(choiceId);
+                const data = await submitAnswer(choiceId);
                 
-                // Auto-advance to next question or complete quiz after 1 second
-                setTimeout(() => {
-                    if (currentQuestionIndex >= quizData.question_count - 1) {
-                        completeQuiz();
-                    } else {
-                        currentQuestionIndex++;
-                        displayQuestion();
-                    }
-                }, 1000);
+                // Auto-advance to next question after 1 second
+                if (data) {
+                    setTimeout(() => {
+                        if (data.timed_out || data.completed || currentQuestionIndex >= quizData.question_count - 1) {
+                            completeQuiz();
+                        } else {
+                            currentQuestionIndex++;
+                            displayQuestion();
+                        }
+                    }, 1000);
+                }
             }
         });
     </script>
