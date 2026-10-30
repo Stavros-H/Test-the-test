@@ -103,7 +103,7 @@
         <main>
             <div class="results-container">
                 <div class="results-card">
-                    <h2 class="results-title">Quiz Complete!</h2>
+                    <h2 class="results-title" id="resultsTitle">Quiz Complete!</h2>
                     
                     <div id="resultsContent">
                         <p class="loading">Loading results...</p>
@@ -190,6 +190,16 @@
         
         function displayResults(data) {
             const resultsContent = document.getElementById('resultsContent');
+            const resultsTitle = document.getElementById('resultsTitle');
+            
+            // Update title based on completion status
+            if (data.timed_out) {
+                resultsTitle.textContent = 'Time\'s Up!';
+                resultsTitle.style.color = '#d32f2f';
+            } else {
+                resultsTitle.textContent = 'Quiz Complete!';
+                resultsTitle.style.color = '#4a6fa5';
+            }
             
             let html = `
                 <div class="score-display">${data.score} / ${data.question_count}</div>
