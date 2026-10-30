@@ -367,17 +367,18 @@ app.post('/api/quizzes/:id/attempts', requireAuth, async (req, res) => {
     // Create attempt with initial time bank of 15 seconds
     const attemptResult = await pool.query(`
       INSERT INTO attempts 
-      (user_id, quiz_id, score, question_count, points, time_bank, timed_out, started_at)
-      VALUES ($1, $2, 0, $3, 0, 15, false, NOW())
+      (user_id, quiz_id, score, question_count, points, time_bank, timed_out, started_at, current_question_index, last_question_started_at)
+      VALUES ($1, $2, 0, $3, 0, 15, false, NOW(), 0, NOW())
       RETURNING id
     `, [userId, quizId, questionCount]);
     
     const attemptId = attemptResult.rows[0].id;
     
-    // Shuffle choices for each question and store the order
-    // Get question text along with shuffled choices
+    // Shuffle questions and choices per attempt (bonus feature)
+    const shuffledQuestionIds = questionIds.sort(() => Math.random() - 0.5);
+    
     const shuffledQuestions = [];
-    for (const qId of questionIds) {
+    for (const qId of shuffledQuestionIds) {
       // Get question text
       const questionTextResult = await pool.query(
         'SELECT text FROM questions WHERE id = $1',
@@ -404,7 +405,8 @@ app.post('/api/quizzes/:id/attempts', requireAuth, async (req, res) => {
       question_count: questionCount,
       questions: shuffledQuestions,
       time_bank: 15,
-      reading_buffer: 3
+      reading_buffer: 3,
+      server_timestamp: new Date().toISOString()
     });
   } catch (err) {
     console.error('Error starting attempt:', err);
@@ -453,14 +455,33 @@ app.post('/api/attempts/:id/answers', requireAuth, async (req, res) => {
     const correctChoiceId = correctChoiceResult.rows[0]?.id;
     const isCorrect = choice_id === correctChoiceId;
     
+    // Calculate time elapsed server-side
+    // The server owns the time - don't trust client timestamps
+    const now = new Date();
+    const questionStartTime = new Date(attempt.last_question_started_at);
+    const readingBuffer = 3; // seconds
+    
+    // Time available for this question = time_bank + reading_buffer
+    const timeAvailable = attempt.time_bank + readingBuffer;
+    
+    // Seconds elapsed since question was served
+    const elapsedSeconds = Math.floor((now - questionStartTime) / 1000);
+    
+    // Seconds remaining (B) - this is what matters for calculations
+    const B = Math.max(0, timeAvailable - elapsedSeconds);
+    
+    // Check for timeout: if B <= 0, the bank hit zero
+    const isTimeout = B <= 0;
+    
     // Calculate points based on the Stacking Time Bank rules
     let pointsEarned = 0;
     let newTimeBank = attempt.time_bank;
     
-    // B = seconds_remaining (whole seconds left when answer lands)
-    const B = Math.floor(seconds_remaining);
-    
-    if (isCorrect) {
+    if (isTimeout) {
+      // Timeout - instant loss, but still counts as completed
+      pointsEarned = 0;
+      newTimeBank = 0;
+    } else if (isCorrect) {
       // Correct: 100 + 10 * B
       pointsEarned = 100 + (10 * B);
       
@@ -477,38 +498,76 @@ app.post('/api/attempts/:id/answers', requireAuth, async (req, res) => {
       newTimeBank = Math.max(3, B - 5);
     }
     
-    // Update attempt with new score, points, and time bank
-    const updatedAttempt = await pool.query(`
-      UPDATE attempts 
-      SET score = score + $1, 
-          points = points + $2, 
-          time_bank = $3
-      WHERE id = $4
-      RETURNING *
-    `, [isCorrect ? 1 : 0, pointsEarned, newTimeBank, attemptId]);
+    // Update attempt with new score, points, time bank, and question tracking
+    const nextQuestionIndex = attempt.current_question_index + 1;
+    const isLastQuestion = nextQuestionIndex >= attempt.question_count;
     
-    // Record the answer
-    await pool.query(`
-      INSERT INTO attempt_answers 
-      (attempt_id, question_id, choice_id, is_correct, seconds_remaining, answered_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
-    `, [attemptId, question_id, choice_id, isCorrect, B]);
-    
-    // Check if this was the last question
-    const answersCount = await pool.query(
-      'SELECT COUNT(*) FROM attempt_answers WHERE attempt_id = $1',
-      [attemptId]
-    );
-    
-    const isLastQuestion = parseInt(answersCount.rows[0].count) >= attempt.question_count;
-    
-    res.json({
-      correct: isCorrect,
-      points: pointsEarned,
-      new_time_bank: newTimeBank,
-      next_reading_buffer: 3,
-      is_last_question: isLastQuestion
-    });
+    // If timeout, mark attempt as timed out and complete it
+    if (isTimeout) {
+      const updatedAttempt = await pool.query(`
+        UPDATE attempts 
+        SET score = score + $1, 
+            points = points + $2, 
+            time_bank = $3,
+            timed_out = true,
+            completed_at = NOW(),
+            current_question_index = $4,
+            last_question_started_at = NOW()
+        WHERE id = $5
+        RETURNING *
+      `, [isCorrect ? 1 : 0, pointsEarned, newTimeBank, nextQuestionIndex, attemptId]);
+      
+      // Record the answer (null choice for timeout)
+      await pool.query(`
+        INSERT INTO attempt_answers 
+        (attempt_id, question_id, choice_id, is_correct, seconds_remaining, answered_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+      `, [attemptId, question_id, null, false, 0]);
+      
+      res.json({
+        correct: false,
+        points: pointsEarned,
+        new_time_bank: newTimeBank,
+        next_reading_buffer: 0,
+        is_last_question: true,
+        timed_out: true,
+        completed: true
+      });
+    } else {
+      // Normal answer submission
+      const updatedAttempt = await pool.query(`
+        UPDATE attempts 
+        SET score = score + $1, 
+            points = points + $2, 
+            time_bank = $3,
+            current_question_index = $4,
+            last_question_started_at = NOW()
+        WHERE id = $5
+        RETURNING *
+      `, [isCorrect ? 1 : 0, pointsEarned, newTimeBank, nextQuestionIndex, attemptId]);
+      
+      // Record the answer
+      await pool.query(`
+        INSERT INTO attempt_answers 
+        (attempt_id, question_id, choice_id, is_correct, seconds_remaining, answered_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+      `, [attemptId, question_id, choice_id, isCorrect, B]);
+      
+      res.json({
+        correct: isCorrect,
+        points: pointsEarned,
+        new_time_bank: newTimeBank,
+        next_reading_buffer: 3,
+        is_last_question: isLastQuestion,
+        timed_out: false,
+        seconds_remaining: B
+      });
+    }
+  } catch (err) {
+    console.error('Error submitting answer:', err);
+    res.status(500).json({ error: 'Failed to submit answer: ' + err.message });
+  }
+});
   } catch (err) {
     console.error('Error submitting answer:', err);
     res.status(500).json({ error: 'Failed to submit answer: ' + err.message });
@@ -555,7 +614,8 @@ app.post('/api/attempts/:id/complete', requireAuth, async (req, res) => {
       question_count: completedAttempt.question_count,
       percentage: percentage,
       points: completedAttempt.points,
-      completed: true
+      completed: true,
+      timed_out: completedAttempt.timed_out
     });
   } catch (err) {
     console.error('Error completing attempt:', err);
@@ -1123,7 +1183,9 @@ const initializeDatabase = async () => {
           time_bank INTEGER NOT NULL DEFAULT 15,
           timed_out BOOLEAN NOT NULL DEFAULT false,
           started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          completed_at TIMESTAMP WITH TIME ZONE
+          completed_at TIMESTAMP WITH TIME ZONE,
+          current_question_index INTEGER NOT NULL DEFAULT 0,
+          last_question_started_at TIMESTAMP WITH TIME ZONE
         )
       `);
       
